@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import fs from "node:fs";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 // Local-only content is never copied into dist or the public archive.
 function localMedia(
@@ -89,6 +90,23 @@ export default defineConfig({
   base: process.env.ATLAS_BASE || "/",
   plugins: [
     react(),
+    {
+      name: "word-atlas-offline",
+      apply: "build",
+      generateBundle(_options, bundle) {
+        const worker = fs.readFileSync("scripts/offline-worker.js", "utf8");
+        const files = ["", "atlas/index.json", ...Object.keys(bundle).filter((file) => file.startsWith("assets/"))];
+        const hash = createHash("sha256").update(worker).update(fs.readFileSync("public/atlas/index.json"));
+        for (const [file, asset] of Object.entries(bundle)) {
+          hash.update(file).update(asset.type === "asset" ? asset.source : asset.code);
+        }
+        this.emitFile({
+          type: "asset",
+          fileName: "sw.js",
+          source: `const BUILD_VERSION = ${JSON.stringify(hash.digest("hex").slice(0, 16))};\nconst SHELL_FILES = ${JSON.stringify(files)};\n${worker}`,
+        });
+      },
+    },
     {
       name: "private-local-library",
       configureServer(server) {

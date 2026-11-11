@@ -52,7 +52,7 @@ export default function App() {
   const dataset = useStore((s) => s.settings.dataset);
   const catalog = useSyncExternalStore(customCatalog.subscribe, customCatalog.getSnapshot, customCatalog.getSnapshot);
   const activeDeck = catalog.decks.find((d) => d.id === catalog.activeId);
-  const custom = useMemo(() => activeDeck?.words.length ? makeCustomAtlas(activeDeck) : null, [activeDeck]);
+  const custom = useMemo(() => activeDeck?.words.length ? makeCustomAtlas(activeDeck, open) : null, [activeDeck, open]);
   useTheme();
 
   useEffect(() => {
@@ -71,10 +71,10 @@ export default function App() {
       // Editing an active custom deck should refresh the Atlas without resetting FSRS state.
       if (!atlas || next.id !== atlas.id) store.useDataset(next.id);
       setAtlas(next);
-    }
+    } else if (!next && atlas) setAtlas(null);
   }, [dataset, open, priv, custom, atlas]);
 
-  if (error)
+  if (error && !atlas)
     return (
       <div className="boot">
         <Logo />
@@ -103,7 +103,7 @@ function Shell({ privateAvailable }: { privateAvailable: boolean }) {
   const onboarded = useStore((s) => s.settings.onboarded);
   const theme = useStore((s) => s.settings.theme);
   const [palette, setPalette] = useState(false);
-  const [splash, setSplash] = useState(shouldShowSplash);
+  const [splash, setSplash] = useState(() => route.page !== "decks" && shouldShowSplash());
   const focus = route.page === "learn";
 
   useEffect(() => {
@@ -195,7 +195,7 @@ function Shell({ privateAvailable }: { privateAvailable: boolean }) {
 
       <WordSheet id={word} />
       <Palette open={palette} onClose={() => setPalette(false)} />
-      {!onboarded && route.page !== "about" && !splash && <Onboarding />}
+      {!onboarded && route.page !== "about" && route.page !== "decks" && !splash && <Onboarding />}
       {splash && <Splash onDone={() => setSplash(false)} />}
       <Toasts />
       <AmbienceController />

@@ -291,6 +291,31 @@ export function exportBackup() {
   return JSON.stringify({ app: "word-atlas", version: 2, exported: new Date().toISOString(), progress: { ...progress, session: null }, settings }, null, 1);
 }
 
+export function readDeckProgress(datasetId: string): Progress {
+  const saved = state.progress.datasetId === datasetId ? state.progress : read(progressKey(datasetId));
+  return sanitizeProgress(saved, datasetId);
+}
+
+/** Install progress before exposing freshly restored decks to the app. */
+export function restoreNewDeckProgress(progresses: Progress[], addDecks: () => void) {
+  const written: string[] = [];
+  try {
+    for (const progress of progresses) {
+      const key = progressKey(progress.datasetId);
+      if (localStorage.getItem(key) !== null) throw new Error("詞庫識別碼已存在，請重新匯入。");
+      localStorage.setItem(key, JSON.stringify(progress));
+      written.push(key);
+    }
+    addDecks();
+  } catch (error) {
+    for (const key of written) localStorage.removeItem(key);
+    if (error instanceof DOMException && error.name === "QuotaExceededError") {
+      throw new Error("瀏覽器儲存空間不足，沒有加入詞庫或覆蓋既有進度。");
+    }
+    throw error;
+  }
+}
+
 function markDirty() {
   dirty = true;
 }

@@ -1,6 +1,7 @@
 import { Download, FileUp, Plus, Trash2, BookOpen } from "lucide-react";
 import { useRef, useState, useSyncExternalStore } from "react";
 import { customCatalog, importVocabulary, type PersonalWord } from "../custom/catalog";
+import { exportPersonalBackup, installPersonalBackup, MAX_BACKUP_BYTES, parsePersonalBackup } from "../custom/backup";
 import { go } from "../lib/router";
 import { store, useStore } from "../store/store";
 
@@ -30,7 +31,9 @@ export function MyDecks() {
   const [message, setMessage] = useState("");
   const [problem, setProblem] = useState("");
   const [query, setQuery] = useState("");
+  const [limit, setLimit] = useState(60);
   const input = useRef<HTMLInputElement>(null);
+  const backupInput = useRef<HTMLInputElement>(null);
   const activeSession = useStore((s) => s.progress.session);
   const busy = catalog.activeId === deck?.id && !!activeSession && !activeSession.finished;
 
@@ -62,6 +65,27 @@ export function MyDecks() {
         " 筆、檔內重複 " + parsed.duplicates + " 筆、缺資料略過 " + parsed.skipped + " 筆。");
     } catch (e) { setProblem(e instanceof Error ? e.message : "檔案匯入失敗。"); }
   };
+  const restore = async (file: File) => {
+    setProblem("");
+    setMessage("");
+    try {
+      if (file.size > MAX_BACKUP_BYTES) throw new Error("備份檔案超過 10 MB。");
+      let data: unknown;
+      try { data = JSON.parse((await file.text()).replace(/^\uFEFF/, "")); }
+      catch { throw new Error("備份檔案必須是有效的 JSON。"); }
+      const plan = parsePersonalBackup(data);
+      if (!plan) throw new Error("這個檔案沒有學習紀錄。純詞庫請使用「匯入 CSV / JSON」。");
+      installPersonalBackup(plan);
+      setManageId(plan.decks[0].deck.id);
+      setEditing(null);
+      setQuery("");
+      setLimit(60);
+      const cards = plan.decks.reduce((total, { progress }) => total + Object.keys(progress.cards).length, 0);
+      const replayed = plan.legacy ? "，重播 " + plan.reviews + " 次舊版複習" : "";
+      const skipped = plan.skippedRecords ? "，略過 " + plan.skippedRecords + " 筆無法對應的紀錄" : "";
+      setMessage(`已還原 ${plan.decks.length} 個詞庫副本和 ${cards} 張 FSRS 詞卡${replayed}${skipped}。`);
+    } catch (e) { setProblem(e instanceof Error ? e.message : "備份還原失敗。"); }
+  };
   const startEdit = (w?: PersonalWord) => {
     setEditing(w?.id ?? "new");
     setDraft(w ? {
@@ -73,23 +97,22 @@ export function MyDecks() {
   const update = (field: keyof Draft, value: string) => setDraft((v) => ({ ...v, [field]: value }));
   const saveWord = () => safe(() => {
     if (!deck) return;
-    customCatalog.put(deck.id, { ...draft });
+    customCatalog.put(deck.id, { ...deck.words.find((word) => word.id === editing), ...draft });
     setEditing(null);
     setMessage("單字已儲存。");
   });
   const erase = (w: PersonalWord) => safe(() => {
-    if (!deck || !confirm("確定從詞庫移除「" + w.word + "」？目前的複習紀錄會保留在獨立的備份資料中。")) return;
+    if (!deck || !confirm("確定從詞庫移除「" + w.word + "」？")) return;
     customCatalog.deleteWord(deck.id, w.id);
     if (editing === w.id) setEditing(null);
   });
-  const shown = deck?.words.filter((w) =>
-    (w.word + " " + w.zh + " " + w.topic).toLowerCase().includes(query.toLowerCase().trim())).slice(0, 200) ?? [];
+  const filtered = deck?.words.filter((w) =>
+    (w.word + " " + w.zh + " " + w.topic).toLowerCase().includes(query.toLowerCase().trim())) ?? [];
 
   return <div className="page my-decks">
     <header className="page-head">
-      <p className="eyebrow">MY WORD ATLAS · CONTENT STUDIO</p>
-      <h1 className="display">自己的詞庫，自己的學習旅程。</h1>
-      <p className="lede">在原版 Word Atlas 的星圖與 FSRS 學習系統內，使用你建立的英文單字、片語和例句。</p>
+      <h1 className="display">我的詞庫</h1>
+      <p className="lede">用自己的英文單字和片語進行 FSRS 複習，並在星圖查看學習進度。</p>
     </header>
 
     <section className="panel" style={{ marginBottom: 20 }}>
@@ -100,7 +123,6 @@ export function MyDecks() {
       <button className="btn btn-ghost" onClick={() => safe(() => { customCatalog.select(null); go({ page: "today" }); })}>
         <BookOpen size={17}/> 返回公開圖鑑
       </button>
-      <p className="muted">每個自訂詞庫有獨立的 FSRS 複習紀錄。原版 Word Atlas 的進度不會被覆蓋。</p>
     </section>
 
     <section className="panel" style={{ marginBottom: 20 }}>
@@ -109,15 +131,23 @@ export function MyDecks() {
         <input aria-label="新詞庫名稱" value={newName} onChange={(e) => setNewName(e.target.value)}
           placeholder="例如 IELTS Academic / STEM English" maxLength={80}/>
         <button className="btn btn-primary" onClick={create}><Plus size={17}/> 建立</button>
+        <button className="btn btn-ghost" onClick={() => backupInput.current?.click()}><FileUp size={17}/> 還原學習備份</button>
+        <input ref={backupInput} hidden type="file" aria-label="學習備份 JSON" accept=".json,application/json" onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void restore(file);
+          e.target.value = "";
+        }}/>
       </div>
       <div className="my-deck-list">
         {catalog.decks.map((d) => <button key={d.id} className={"chip-btn " + (deck?.id === d.id ? "is-on" : "")}
-          onClick={() => { setManageId(d.id); setEditing(null); setQuery(""); }}>
+          onClick={() => { setManageId(d.id); setEditing(null); setQuery(""); setLimit(60); }}>
           {d.name} · {d.words.length} 字{catalog.activeId === d.id ? " · 使用中" : ""}
         </button>)}
       </div>
     </section>
 
+    {message && <p role="status" className="panel" style={{ borderColor: "#71a78b" }}>{message}</p>}
+    {problem && <p role="alert" className="panel warn-text">{problem}</p>}
     {deck && <section className="panel" style={{ marginBottom: 20 }}>
       <h2>編輯：{deck.name}</h2>
       {busy && <p className="warn-text">這個詞庫有未完成的學習流程。請先完成或暫停學習，再刪除或匯入內容。</p>}
@@ -128,25 +158,30 @@ export function MyDecks() {
           saveText(idSafe(deck.name) + ".json", JSON.stringify({ app: "my-word-atlas-custom-deck", version: 1, name: deck.name, words: deck.words }, null, 2), "application/json")}>
           <Download size={17}/> 匯出詞庫 JSON
         </button>
+        <button className="btn btn-ghost" disabled={!deck.words.length} onClick={() =>
+          saveText(idSafe(deck.name) + "-backup.json", exportPersonalBackup(deck), "application/json")}>
+          <Download size={17}/> 備份詞庫與進度
+        </button>
         <button className="btn btn-ghost" onClick={() => startEdit()}><Plus size={17}/> 新增單字</button>
-        <input ref={input} hidden type="file" accept=".csv,.json,text/csv,application/json" onChange={(e) => {
+        <input ref={input} hidden type="file" aria-label="詞庫 CSV 或 JSON" accept=".csv,.json,text/csv,application/json" onChange={(e) => {
           const file = e.target.files?.[0]; if (file) void upload(file);
           e.target.value = "";
         }}/>
       </div>
-      <p className="muted">支援 Google 翻譯「已儲存的翻譯」四欄 CSV、一般 word/zh CSV、Word Atlas JSON 與舊版詞庫備份。匯入只新增不同英文詞條，不會覆蓋既有詞卡。</p>
+      <p className="muted">支援 Google 翻譯 CSV、含 word/zh 欄位的 CSV 和 Word Atlas JSON。已有的英文詞條會跳過。</p>
       <label className="my-deck-search">搜尋詞條
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="英文、中文或主題"/>
+        <input value={query} onChange={(e) => { setQuery(e.target.value); setLimit(60); }} placeholder="英文、中文或主題"/>
       </label>
       <div className="my-deck-words">
-        {shown.map((w) => <div key={w.id} className="my-deck-word">
+        {filtered.slice(0, limit).map((w) => <div key={w.id} className="my-deck-word">
           <span><strong lang="en">{w.word}</strong> <small>{w.pos} · {w.cefr} · {w.zh}</small></span>
           <span>
             <button className="btn btn-ghost" onClick={() => startEdit(w)}>編輯</button>
             <button className="icon-btn" disabled={busy} onClick={() => erase(w)} aria-label={"刪除 " + w.word}><Trash2 size={16}/></button>
           </span>
         </div>)}
-        {deck.words.length > 200 && <p className="muted">只顯示符合條件的前 200 筆，請使用搜尋縮小範圍。</p>}
+        {filtered.length > limit && <button className="btn btn-ghost" onClick={() => setLimit((n) => n + 60)}>載入更多（{limit} / {filtered.length}）</button>}
+        {!!deck.words.length && !filtered.length && <p className="muted">沒有符合的詞條。</p>}
         {!deck.words.length && <p className="muted">此詞庫還沒有單字。可匯入 CSV、JSON，或先建立第一張單字卡。</p>}
       </div>
     </section>}
@@ -174,10 +209,8 @@ export function MyDecks() {
       </div>
     </section>}
 
-    {message && <p role="status" className="panel" style={{ borderColor: "#71a78b" }}>{message}</p>}
-    {problem && <p role="alert" className="panel warn-text">{problem}</p>}
-    <section className="panel"><h2>資料及遷移說明</h2>
-      <p className="muted">目前使用瀏覽器 localStorage 儲存自訂詞庫；請定期匯出 JSON。原版 V1.4.1 的備份可匯入詞彙內容，但<strong>不能直接遷移舊版排程分數</strong>。這個新 Fork 是獨立網址，舊網站和學習紀錄保持原狀。</p>
+    <section className="panel"><h2>備份與換裝置</h2>
+      <p className="muted">學習資料保存在這個瀏覽器。換裝置前，下載「備份詞庫與進度」，再用「還原學習備份」建立副本。也可用同一按鈕匯入 V1.4.1 備份，系統會按原來的複習日期與評分重算 FSRS 排程。</p>
     </section>
   </div>;
 }

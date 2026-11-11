@@ -11,6 +11,10 @@ export interface PersonalWord {
   example: string;
   exampleZh: string;
   collocations: string[];
+  definition?: string;
+  uk?: string;
+  us?: string;
+  atlasId?: string;
   imageUrl?: string;
   audioUkUrl?: string;
   audioUsUrl?: string;
@@ -37,10 +41,11 @@ export interface ImportedVocabulary {
 export const CATALOG_KEY = "my-word-atlas:catalog:v1";
 export const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"] as const;
 const MAX_WORDS = 5000;
+const MAX_DECKS = 60;
 const MAX_FILE_BYTES = 4 * 1024 * 1024;
 const blank = (): CatalogState => ({ version: 1, activeId: null, decks: [] });
 const text = (value: unknown): string => typeof value === "string" ? value.trim() : "";
-const object = (value: unknown): value is Record<string, unknown> =>
+export const object = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === "object" && !Array.isArray(value);
 const alpha = (s: string) => /[A-Za-z]/.test(s);
 const han = (s: string) => /[\u3400-\u9fff]/.test(s);
@@ -63,7 +68,7 @@ function makeId(word: string): string {
   return "personal-" + (h >>> 0).toString(36);
 }
 
-function parseWord(value: unknown): PersonalWord | null {
+export function parseWord(value: unknown): PersonalWord | null {
   if (!object(value)) return null;
   const senses = Array.isArray(value.senses) ? value.senses : [];
   const sense: Record<string, unknown> = object(senses[0]) ? senses[0] : {};
@@ -73,7 +78,8 @@ function parseWord(value: unknown): PersonalWord | null {
   const zh = cutoff(text(value.zh || value.meaning || sense.zh), 500);
   if (!word || !alpha(word) || !zh) return null;
   const collocations = Array.isArray(value.collocations) ? value.collocations :
-    Array.isArray(value.col) ? value.col : [];
+    Array.isArray(value.col) ? value.col : text(value.collocations).split(/[;；]/);
+  const atlasId = text(value.atlasId || (value.atlasMedia && value.id));
   return {
     id: makeId(word),
     word,
@@ -84,6 +90,10 @@ function parseWord(value: unknown): PersonalWord | null {
     example: cutoff(text(value.example || example.en), 500),
     exampleZh: cutoff(text(value.exampleZh || example.zh), 500),
     collocations: collocations.map(text).filter(Boolean).slice(0, 12),
+    definition: cutoff(text(value.definition || sense.en), 500),
+    uk: cutoff(text(value.uk), 80),
+    us: cutoff(text(value.us), 80),
+    atlasId: /^[a-z0-9][a-z0-9-]{0,90}$/.test(atlasId) ? atlasId : undefined,
     imageUrl: mediaURL(value.imageUrl || (object(value.media) && value.media.img)),
     audioUkUrl: mediaURL(value.audioUkUrl || (object(value.media) && value.media.uk)),
     audioUsUrl: mediaURL(value.audioUsUrl || (object(value.media) && value.media.us)),
@@ -121,7 +131,10 @@ export function parseCSV(textCSV: string): string[][] {
 }
 
 const englishLang = (s: string) => /^(英文|英语|英語|english|en|en-us|en-gb)$/i.test(text(s));
-const chineseLang = (s: string) => /^(中文(?:\s*[\(（][^\)）]+[\)）])?|汉语|漢語|簡體中文|简体中文|繁體中文|繁体中文|chinese|zh(?:-[a-z]+)?)$/i.test(text(s));
+const chineseLang = (s: string) => /^(中文(?:\s*[(（][^)）]+[)）])?|汉语|漢語|簡體中文|简体中文|繁體中文|繁体中文|粵語|粤语|廣東話|广东话|cantonese|chinese|zh(?:-[a-z]+)?)$/i.test(text(s));
+const autoLang = (s: string) => /^(偵測語言|检测语言|detect language|auto)$/i.test(text(s));
+const knownLang = (s: string) => englishLang(s) || chineseLang(s) || autoLang(s);
+const looksEnglish = (s: string) => alpha(s) && !han(s);
 
 function csvWords(rows: string[][]): unknown[] {
   if (!rows.length) return [];
@@ -141,17 +154,22 @@ function csvWords(rows: string[][]): unknown[] {
       topic: col(r, ["topic", "category", "主題", "主题", "分類", "分类"]),
       example: col(r, ["example", "sentence", "例句"]),
       exampleZh: col(r, ["examplezh", "example_zh", "例句中文"]),
+      definition: col(r, ["definition", "英文釋義"]),
+      collocations: col(r, ["collocations", "col", "搭配"]),
       imageUrl: col(r, ["imageurl", "image_url"]),
       audioUkUrl: col(r, ["audioukurl", "audio_uk_url"]),
       audioUsUrl: col(r, ["audiousurl", "audio_us_url"]),
     }));
   }
   // Google Translate Saved Translations: source language, target language, source, translation.
-  if (rows[0].length >= 4 && (englishLang(rows[0][0]) || chineseLang(rows[0][0]))) {
+  const sample = rows.slice(0, 12);
+  if (sample.filter((r) => r.length >= 4 && knownLang(r[0]) && knownLang(r[1])).length >= Math.ceil(sample.length * 0.7)) {
     return rows.map((r) => {
       if (r.length < 4) return null;
-      if (englishLang(r[0]) && chineseLang(r[1])) return { word: r[2], zh: r[3] };
-      if (chineseLang(r[0]) && englishLang(r[1])) return { word: r[3], zh: r[2] };
+      if (chineseLang(r[1]) && (englishLang(r[0]) || (autoLang(r[0]) && looksEnglish(r[2]))))
+        return { word: r[2], zh: r[3] };
+      if (chineseLang(r[0]) && (englishLang(r[1]) || (autoLang(r[1]) && looksEnglish(r[3]))))
+        return { word: r[3], zh: r[2] };
       return null;
     });
   }
@@ -191,28 +209,32 @@ export function importVocabulary(raw: string, filename = ""): ImportedVocabulary
   return { words: [...dedup.values()], skipped, duplicates };
 }
 
-export function makeCustomAtlas(deck: PersonalDeck): Atlas {
+export function makeCustomAtlas(deck: PersonalDeck, open: Atlas | null = null): Atlas {
   const levels = [...LEVELS];
   const categories = [...new Set(deck.words.map((w) => w.topic || "custom"))];
   const topics: [string, string][] = (categories.length ? categories : ["custom"]).map((t) => [t, t]);
   const entries = new Map<string, Entry>();
   const words: WordRef[] = deck.words.map((w, order) => {
-    const media = (w.imageUrl ? MEDIA.img : 0) | (w.audioUkUrl ? MEDIA.uk : 0) | (w.audioUsUrl ? MEDIA.us : 0);
+    const twin = w.atlasId ? open?.byId.get(w.atlasId) : undefined;
+    const img = w.imageUrl || (twin && open?.img(twin, "thumb")) || null;
+    const uk = w.audioUkUrl || (twin && open?.audio(twin, "uk")) || null;
+    const us = w.audioUsUrl || (twin && open?.audio(twin, "us")) || null;
+    const media = (img ? MEDIA.img : 0) | (uk ? MEDIA.uk : 0) | (us ? MEDIA.us : 0);
     entries.set(w.id, {
-      id: w.id, w: w.word, uk: "", us: "",
-      senses: [{ pos: w.pos, zh: w.zh, en: "" }],
+      id: w.id, w: w.word, uk: w.uk || "", us: w.us || "",
+      senses: [{ pos: w.pos, zh: w.zh, en: w.definition || "" }],
       ex: w.example ? [{ en: w.example, zh: w.exampleZh }] : [],
       col: w.collocations, fam: [], syn: [], ant: [], tip: "",
       cefr: w.cefr, topic: w.topic, m: media,
-      media: { img: w.imageUrl || null, uk: w.audioUkUrl || null, us: w.audioUsUrl || null },
+      media: { img, uk, us },
     });
-    return { id: w.id, word: w.word, zh: [w.pos, w.zh].filter(Boolean).join(" "), ipa: "",
+    return { id: w.id, word: w.word, zh: [w.pos, w.zh].filter(Boolean).join(" "), ipa: w.uk || w.us || "",
       cefr: Math.max(0, levels.indexOf(w.cefr as typeof LEVELS[number])),
       topic: Math.max(0, categories.indexOf(w.topic)), media, order };
   });
   const byId = new Map(words.map((w) => [w.id, w]));
   return {
-    id: "my-word-atlas:deck:" + deck.id,
+    id: customDatasetId(deck.id),
     name: deck.name, kind: "private", count: words.length,
     examples: [...entries.values()].reduce((n, e) => n + e.ex.length, 0),
     illustrated: words.filter((w) => !!(w.media & MEDIA.img)).length,
@@ -236,7 +258,7 @@ function readCatalog(): CatalogState {
     const data = JSON.parse(localStorage.getItem(CATALOG_KEY) || "null") as unknown;
     if (!object(data) || data.version !== 1 || !Array.isArray(data.decks)) return blank();
     const decks: PersonalDeck[] = [];
-    for (const v of data.decks.slice(0, 60)) {
+    for (const v of data.decks.slice(0, MAX_DECKS)) {
       if (!object(v) || typeof v.id !== "string" || typeof v.name !== "string" || !Array.isArray(v.words)) continue;
       decks.push({ id: v.id, name: cutoff(v.name, 80),
         words: v.words.slice(0, MAX_WORDS).map(parseWord).filter((w): w is PersonalWord => !!w) });
@@ -255,7 +277,8 @@ function commit(next: CatalogState) {
   state = next;
   announce();
 }
-const freshId = () => "deck-" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+export const newDeckId = () => "deck-" + crypto.randomUUID();
+export const customDatasetId = (deckId: string) => "my-word-atlas:deck:" + deckId;
 
 export const customCatalog = {
   getSnapshot: () => state,
@@ -263,7 +286,8 @@ export const customCatalog = {
   create(name: string): string {
     const label = cutoff(name.trim(), 80);
     if (!label) throw new Error("請先輸入詞庫名稱。");
-    const id = freshId();
+    const id = newDeckId();
+    if (state.decks.length >= MAX_DECKS) throw new Error("最多可儲存 60 個詞庫。");
     commit({ ...state, decks: [...state.decks, { id, name: label, words: [] }] });
     return id;
   },
@@ -271,6 +295,10 @@ export const customCatalog = {
     if (id && !state.decks.some((d) => d.id === id && d.words.length))
       throw new Error("詞庫沒有單字，請先匯入或新增單字。");
     commit({ ...state, activeId: id });
+  },
+  addRestored(decks: PersonalDeck[]) {
+    if (state.decks.length + decks.length > MAX_DECKS) throw new Error("還原會超過 60 個詞庫的上限。");
+    commit({ ...state, decks: [...state.decks, ...decks] });
   },
   rename(id: string, name: string) {
     const label = cutoff(name.trim(), 80);
@@ -306,7 +334,9 @@ export const customCatalog = {
     return { added: additions.length, existing: entries.length - additions.length };
   },
   deleteWord(deckId: string, wordId: string) {
-    commit({ ...state, decks: state.decks.map((d) => d.id === deckId ? { ...d, words: d.words.filter((w) => w.id !== wordId) } : d) });
+    const decks = state.decks.map((d) => d.id === deckId ? { ...d, words: d.words.filter((w) => w.id !== wordId) } : d);
+    const activeId = decks.some((d) => d.id === state.activeId && d.words.length) ? state.activeId : null;
+    commit({ ...state, activeId, decks });
   },
 };
 
