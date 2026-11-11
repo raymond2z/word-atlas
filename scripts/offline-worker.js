@@ -23,7 +23,9 @@ self.addEventListener("activate", (event) => {
 
 async function cachedFetch(request, name) {
   const cache = await caches.open(name);
-  const hit = await cache.match(request);
+  // Precache fetches and module/preload tags can send different Origin headers.
+  // Shell files are fixed, same-origin assets shared by both request forms.
+  const hit = await cache.match(request, { ignoreVary: name === shell });
   if (hit) return hit;
   const response = await fetch(request);
   if (response.ok && response.type === "basic") {
@@ -42,7 +44,7 @@ self.addEventListener("fetch", (event) => {
   const relative = new URL(request.url).pathname.slice(new URL(scope).pathname.length);
   if (request.mode === "navigate" && (relative === "" || relative === "index.html")) {
     // Match the document and its hashed assets to the same installed build.
-    event.respondWith(caches.open(shell).then(async (cache) => (await cache.match(scope)) || fetch(request)));
+    event.respondWith(caches.open(shell).then(async (cache) => (await cache.match(scope, { ignoreVary: true })) || fetch(request)));
     return;
   }
   if (!/^(assets\/|atlas\/|brand\/|sfx\/)/.test(relative)) return;

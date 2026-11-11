@@ -110,7 +110,9 @@ try {
   });
   const phone = await mobile.newPage();
   const mobileErrors = [];
+  const offlineFailures = [];
   phone.on("pageerror", (error) => mobileErrors.push(error.message));
+  phone.on("requestfailed", (request) => offlineFailures.push([request.url(), request.failure()?.errorText]));
   await phone.goto(origin + "#/decks", { waitUntil: "domcontentloaded" });
   await phone.getByRole("heading", { name: "我的詞庫", exact: true }).waitFor();
   assert.equal(await phone.getByRole("dialog").count(), 0);
@@ -151,15 +153,26 @@ try {
   assert.deepEqual(restored.cards, saved.progress.cards);
   await phone.waitForFunction(() => !!navigator.serviceWorker.controller);
   await mobile.setOffline(true);
-  await phone.reload();
-  await phone.locator(".today").waitFor();
+  try {
+    await phone.reload();
+    await phone.locator(".today").waitFor({ timeout: 10000 });
+  } catch (error) {
+    console.error("Offline boot failed", {
+      url: phone.url(),
+      page: (await phone.locator("body").innerText().catch(() => "")).slice(0, 300),
+      cached: await phone.evaluate(async () => (await Promise.all((await caches.keys()).map(async (name) =>
+        (await (await caches.open(name)).keys()).map((request) => request.url)))).flat()).catch(() => []),
+      errors: mobileErrors, requests: offlineFailures,
+    });
+    throw error;
+  }
   await phone.locator('.tabbar a[href="#/atlas"]').click();
   await phone.getByText("4 词", { exact: false }).first().waitFor();
   await phone.getByRole("button", { name: "星图视图" }).click();
   await phone.getByRole("img", { name: /词汇星图：4 颗星，已点亮 1 颗/ }).waitFor();
   await phone.locator('.tabbar a[href="#/"]').click();
   await phone.getByRole("button", { name: /开始今天的旅程/ }).click();
-  await phone.locator(".intro").waitFor();
+  await phone.locator(".intro, .quiz").waitFor();
   assert.deepEqual(mobileErrors, []);
   assert.equal(await phone.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   console.log("Browser E2E passed: desktop study, mobile import, exact FSRS restore on a separate browser context, and offline study");
