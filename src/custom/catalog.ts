@@ -66,9 +66,9 @@ function makeId(word: string): string {
 function parseWord(value: unknown): PersonalWord | null {
   if (!object(value)) return null;
   const senses = Array.isArray(value.senses) ? value.senses : [];
-  const sense = object(senses[0]) ? senses[0] : {};
+  const sense: Record<string, unknown> = object(senses[0]) ? senses[0] : {};
   const ex = Array.isArray(value.ex) ? value.ex : [];
-  const example = object(ex[0]) ? ex[0] : {};
+  const example: Record<string, unknown> = object(ex[0]) ? ex[0] : {};
   const word = cutoff(text(value.word || value.w || value.en), 180);
   const zh = cutoff(text(value.zh || value.meaning || sense.zh), 500);
   if (!word || !alpha(word) || !zh) return null;
