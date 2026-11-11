@@ -79,6 +79,20 @@ try {
   await page.getByRole("button", { name: "開始一輪" }).click();
   await page.locator(".typing-stage").waitFor();
   assert.equal(await page.locator(".typing-text").textContent(), "This is a versatile tool.");
+  await page.evaluate(() => {
+    speechSynthesis.speak = (utterance) => queueMicrotask(() => utterance.onerror?.());
+  });
+  await page.getByRole("button", { name: "朗讀例句" }).click();
+  await page.getByText("無法播放發音。", { exact: false }).waitFor();
+  await page.evaluate(() => {
+    speechSynthesis.speak = (utterance) => {
+      window.spokenExample = utterance.text;
+      queueMicrotask(() => utterance.onend?.());
+    };
+  });
+  await page.getByRole("button", { name: "朗讀例句" }).click();
+  await page.waitForFunction(() => window.spokenExample === "This is a versatile tool.");
+  await page.getByText("無法播放發音。", { exact: false }).waitFor({ state: "hidden" });
   await page.locator('.topnav a[href="#/"]').click();
   await page.reload();
   await page.locator(".today").waitFor();

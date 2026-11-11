@@ -251,6 +251,11 @@ export function makeCustomAtlas(deck: PersonalDeck, open: Atlas | null = null): 
       if (kind !== "uk" && kind !== "us") return null;
       return entries.get(ref.id)?.media?.[kind] || null;
     },
+    wordFallbackAudio: (ref) => {
+      if (typeof __WORD_ATLAS_PRIVATE_AUDIO__ === "undefined") return null;
+      const file = __WORD_ATLAS_PRIVATE_AUDIO__[ref.id];
+      return file ? `${import.meta.env.BASE_URL}${file}` : null;
+    },
   };
 }
 

@@ -35,3 +35,7 @@ Word Atlas 原站。这种部署可从 `dist/atlas/` 省去 `img`、`thumb` 和 
 私人站点可在构建时设定 `ATLAS_PRIVATE_PRESET_FILE`，指向包含 `id`、`name`
 和 `words` 的 JSON。使用以 `preset-` 开头的固定 ID。浏览器只会加入该词库一次。
 输入文件应放在储存库以外，含该词库的构建产物仅适合部署到具访问控制的站点。
+
+私人站點可另設 `ATLAS_PRIVATE_AUDIO_DIR`，指向詞條的備用美式語音 MP3 目錄。檔名使用
+`<詞條 id>.mp3`，例如 `personal-abc123.mp3`。建置會以內容雜湊為檔案加上版本。
+備用音檔與詞庫來源一同存放在公開儲存庫之外，並僅隨私人站點發布。

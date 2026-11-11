@@ -1,8 +1,8 @@
-import { Headphones, Keyboard, RotateCcw, Type } from "lucide-react";
+import { Headphones, Keyboard, RotateCcw, Type, Volume2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { prefetch, useAtlas } from "../atlas/context";
 import type { Entry } from "../atlas/types";
-import { play, stopAudio } from "../lib/audio";
+import { canSynthesize, play, pronunciationError, stopAudio, type Playback } from "../lib/audio";
 import { cue } from "../lib/sound";
 import { hashSeed, shuffle } from "../lib/text";
 import { clean, correctCharacterCount, same, typingDelta, typingMetrics } from "../lib/typing";
@@ -34,7 +34,7 @@ export function Practice() {
   const [round, setRound] = useState<{ entries: Entry[]; key: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [problem, setProblem] = useState("");
-  const canSpeak = "speechSynthesis" in window;
+  const canSpeak = canSynthesize();
 
   const pool = useMemo(() => {
     const learned = Object.entries(progress.cards)
@@ -147,19 +147,23 @@ function TypingRound({ mode, entries, onExit, onAgain, loading }: { mode: Mode; 
   const totalsRef = useRef({ typed: 0, correct: 0, accepted: 0, ms: 0 });
   const [totals, setTotals] = useState(totalsRef.current);
   const [done, setDone] = useState(false);
+  const [audioState, setAudioState] = useState<Playback | null>(null);
   const started = useRef<number | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const e = entries[i];
   const target = mode === "word" ? e.w : e.ex[0].en;
+  const fallbackUrl = mode === "word" ? atlas.wordFallbackAudio?.(e) : null;
+  const read = () => play(atlas.audio(e, mode === "word" ? settings.accent : "ex"), target, settings.accent, 1, fallbackUrl);
+  const reportAudio = (status: Playback) => { if (status !== "stopped") setAudioState(status); };
 
   useEffect(() => {
     setValue("");
+    setAudioState(null);
     started.current = null;
     input.current?.focus();
-    if (mode === "dictation") void play(atlas.audio(e, "ex"), e.ex[0].en, settings.accent);
-    if (mode === "word" && settings.autoplay) void play(atlas.audio(e, settings.accent), e.w, settings.accent);
+    if (mode === "dictation" || settings.autoplay) void read().then(reportAudio);
+    return stopAudio;
   }, [i]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => () => stopAudio(), []);
 
   const onChange = (next: string) => {
     if (done) return;
@@ -237,15 +241,17 @@ function TypingRound({ mode, entries, onExit, onAgain, loading }: { mode: Mode; 
           </div>
         )}
         {mode !== "word" && (
-          <p className="typing-zh">
-            {mode === "dictation" && (
-              <button className="link" onClick={() => play(atlas.audio(e, "ex"), e.ex[0].en, settings.accent)}>
-                再聽一遍
-              </button>
-            )}
-            {e.ex[0].zh}
-          </p>
+          e.ex[0].zh && <p className="typing-zh">{e.ex[0].zh}</p>
         )}
+        <button className="btn btn-ghost" type="button" onClick={(event) => {
+          event.stopPropagation();
+          setAudioState(null);
+          void read().then(reportAudio);
+        }}>
+          <Volume2 size={18} /> {mode === "word" ? "朗讀單字" : mode === "sentence" ? "朗讀例句" : "再聽一遍"}
+        </button>
+        {audioState === "unavailable" && <p role="status" className="warn-text">{pronunciationError}</p>}
+        {audioState === "fallback" && <p role="status" className="muted">已播放備用美式發音。</p>}
         <p className={`typing-text ${mode === "word" ? "is-word" : ""} ${mode === "dictation" ? "is-hidden" : ""}`} lang="en" aria-hidden="true">
           {chars.map((ch, k) => {
             const t = typed[k];

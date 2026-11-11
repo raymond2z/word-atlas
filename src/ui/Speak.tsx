@@ -1,9 +1,11 @@
 import { Volume2 } from "lucide-react";
 import { useState } from "react";
-import { play } from "../lib/audio";
+import { play, pronunciationError } from "../lib/audio";
+import { toast } from "./Toast";
 
 export function Speak({
   url,
+  fallbackUrl,
   text,
   accent = "uk",
   label,
@@ -13,6 +15,7 @@ export function Speak({
   kbd,
 }: {
   url: string | null;
+  fallbackUrl?: string | null;
   text: string;
   accent?: "uk" | "us";
   label?: React.ReactNode;
@@ -26,7 +29,7 @@ export function Speak({
     e.stopPropagation();
     setOn(true);
     try {
-      await play(url, text, accent, rate);
+      if (await play(url, text, accent, rate, fallbackUrl) === "unavailable") toast(pronunciationError, "warn");
     } finally {
       setOn(false);
     }
