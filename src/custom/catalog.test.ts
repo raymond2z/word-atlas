@@ -1,6 +1,30 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { importVocabulary, makeCustomAtlas, parseCSV, type PersonalDeck } from "./catalog";
+import { importVocabulary, installPreset, makeCustomAtlas, parseCSV, type CatalogState, type PersonalDeck } from "./catalog";
+
+test("a configured deck is available immediately on a fresh browser and installs only once", () => {
+  const empty: CatalogState = { version: 1, activeId: null, decks: [] };
+  const preset = { id: "preset-sample", name: "Sample", words: [{ word: "algorithm", zh: "演算法" }] };
+  assert.strictEqual(installPreset(empty, null), empty);
+  const first = installPreset(empty, preset);
+  assert.equal(first.activeId, preset.id);
+  assert.equal(first.decks[0].words[0].zh, "演算法");
+  assert.strictEqual(installPreset(first, preset), first);
+  const deleted = { ...first, activeId: null, decks: [] };
+  assert.strictEqual(installPreset(deleted, preset), deleted);
+});
+
+test("a configured deck preserves the active deck and does not duplicate a prior import", () => {
+  const [edited] = importVocabulary("word,zh\nalgorithm,自訂翻譯", "words.csv").words;
+  const saved: CatalogState = { version: 1, activeId: "local", decks: [{ id: "local", name: "Local", words: [edited] }] };
+  const preset = { id: "preset-sample", name: "Sample", words: [{ word: "algorithm", zh: "演算法" }] };
+  const existing = installPreset(saved, preset);
+  assert.strictEqual(existing.decks, saved.decks);
+  assert.equal(existing.decks[0].words[0].zh, "自訂翻譯");
+  const added = installPreset(saved, { ...preset, words: [{ word: "abacus", zh: "算盤" }] });
+  assert.equal(added.activeId, "local");
+  assert.deepEqual(added.decks.map((deck) => deck.id), ["preset-sample", "local"]);
+});
 
 test("CSV parser supports BOM, quoted commas, escaped quotes and newlines", () => {
   const rows = parseCSV('\uFEFFword,zh,example\n"well-being","幸福，福祉","She said ""hello"",\nthen left."');

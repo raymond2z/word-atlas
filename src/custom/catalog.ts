@@ -30,6 +30,7 @@ export interface CatalogState {
   version: 1;
   activeId: string | null;
   decks: PersonalDeck[];
+  installedPreset?: string;
 }
 
 export interface ImportedVocabulary {
@@ -253,6 +254,32 @@ export function makeCustomAtlas(deck: PersonalDeck, open: Atlas | null = null): 
   };
 }
 
+export function installPreset(catalog: CatalogState, preset: unknown): CatalogState {
+  if (!object(preset) || typeof preset.id !== "string" || !/^preset-[a-z0-9-]{1,70}$/.test(preset.id) ||
+      catalog.installedPreset === preset.id || !Array.isArray(preset.words) || preset.words.length > MAX_WORDS) return catalog;
+  const name = cutoff(text(preset.name), 80);
+  const words = [...new Map(preset.words.map(parseWord).filter((word): word is PersonalWord => !!word)
+    .map((word) => [key(word.word), word])).values()];
+  if (!name || !words.length) return catalog;
+
+  const installedPreset = preset.id;
+  const alreadyImported = catalog.decks.some((deck) => {
+    if (deck.id === installedPreset) return true;
+    if (deck.words.length < words.length) return false;
+    const existing = new Set(deck.words.map((word) => key(word.word)));
+    return words.every((word) => existing.has(key(word.word)));
+  });
+  if (alreadyImported) return { ...catalog, installedPreset };
+  if (catalog.decks.length >= MAX_DECKS) return catalog;
+
+  return {
+    ...catalog,
+    installedPreset,
+    activeId: catalog.decks.length ? catalog.activeId : installedPreset,
+    decks: [{ id: installedPreset, name, words }, ...catalog.decks],
+  };
+}
+
 function readCatalog(): CatalogState {
   try {
     const data = JSON.parse(localStorage.getItem(CATALOG_KEY) || "null") as unknown;
@@ -264,11 +291,23 @@ function readCatalog(): CatalogState {
         words: v.words.slice(0, MAX_WORDS).map(parseWord).filter((w): w is PersonalWord => !!w) });
     }
     const selected = text(data.activeId);
-    return { version: 1, activeId: decks.some((d) => d.id === selected && d.words.length) ? selected : null, decks };
+    const activeId = decks.some((d) => d.id === selected && d.words.length) ? selected : null;
+    return { version: 1, activeId, decks, installedPreset: text(data.installedPreset) || undefined };
   } catch { return blank(); }
 }
 
-let state: CatalogState = readCatalog();
+function initialCatalog(): CatalogState {
+  const saved = readCatalog();
+  if (typeof __WORD_ATLAS_PRESET__ === "undefined" || !__WORD_ATLAS_PRESET__) return saved;
+  const seeded = installPreset(saved, __WORD_ATLAS_PRESET__);
+  if (seeded !== saved) {
+    try { localStorage.setItem(CATALOG_KEY, JSON.stringify(seeded)); }
+    catch { /* The supplied deck is still available for this visit. */ }
+  }
+  return seeded;
+}
+
+let state: CatalogState = initialCatalog();
 const listeners = new Set<() => void>();
 const announce = () => listeners.forEach((fn) => fn());
 function commit(next: CatalogState) {

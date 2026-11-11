@@ -31,3 +31,7 @@ location ^~ /words/ {
 `VITE_ATLAS_MEDIA_BASE=https://0xlei.tech/words/atlas`，让公开图鉴的图片及录音沿用
 Word Atlas 原站。这种部署可从 `dist/atlas/` 省去 `img`、`thumb` 和 `audio`，
 并须保留 `index.json` 和 `entries/`。自订词库中的学习记录仍在浏览器本机。
+
+私人站点可在构建时设定 `ATLAS_PRIVATE_PRESET_FILE`，指向包含 `id`、`name`
+和 `words` 的 JSON。使用以 `preset-` 开头的固定 ID。浏览器只会加入该词库一次。
+输入文件应放在储存库以外，含该词库的构建产物仅适合部署到具访问控制的站点。

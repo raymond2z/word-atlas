@@ -88,6 +88,11 @@ function localMedia(
 export default defineConfig({
   // Deploy under a sub-path with ATLAS_BASE=/words/ npm run build
   base: process.env.ATLAS_BASE || "/",
+  define: {
+    __WORD_ATLAS_PRESET__: process.env.ATLAS_PRIVATE_PRESET_FILE
+      ? JSON.stringify(JSON.parse(fs.readFileSync(process.env.ATLAS_PRIVATE_PRESET_FILE, "utf8")))
+      : "null",
+  },
   plugins: [
     react(),
     {
