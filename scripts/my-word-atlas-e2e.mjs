@@ -58,11 +58,30 @@ try {
 
   await page.reload();
   await page.locator(".today").waitFor();
-  const datasetId = await page.evaluate(() => Object.keys(localStorage).find((x) => x.includes("word-atlas:v2:my-word-atlas:deck:")));
-  assert.ok(datasetId);
+  const reloadedId = await page.evaluate(() => JSON.parse(localStorage.getItem("my-word-atlas:catalog:v1")).activeId);
+  assert.equal(reloadedId, activeId); // Selecting a deck does not write an empty FSRS file.
   await page.locator('.topnav a[href="#/atlas"]').click();
   await page.locator(".atlas").waitFor();
   await page.getByText("4 词", { exact: false }).first().waitFor();
+  // Make a real first answer before checking FSRS persistence.
+  await page.locator('.topnav a[href="#/"]').click();
+  await page.getByRole("button", { name: /开始今天的旅程/ }).click();
+  await page.locator(".intro").waitFor();
+  for (let i = 0; i < 4; i++) {
+    await page.getByRole("button", { name: /认识了/ }).click();
+  }
+  await page.locator(".quiz .options button").first().click();
+  await page.waitForFunction(() => {
+    const k = Object.keys(localStorage).find((name) => name.startsWith("word-atlas:v2:my-word-atlas:deck:"));
+    if (!k) return false;
+    const data = JSON.parse(localStorage.getItem(k));
+    return Object.keys(data.cards ?? {}).length === 1;
+  });
+  await page.reload();
+  await page.waitForFunction(() => {
+    const k = Object.keys(localStorage).find((name) => name.startsWith("word-atlas:v2:my-word-atlas:deck:"));
+    return k && Object.keys(JSON.parse(localStorage.getItem(k)).cards ?? {}).length === 1;
+  });
 
   await page.locator('.topnav a[href="#/decks"]').click();
   await page.getByRole("button", { name: "返回公開圖鑑" }).click();
@@ -71,7 +90,7 @@ try {
   await page.locator(".atlas").waitFor();
   await page.getByText("7,298 词", { exact: false }).first().waitFor();
   assert.deepEqual(pageErrors, []);
-  console.log("Browser E2E passed: create → import → activate → reload → galaxy → original atlas");
+  console.log("Browser E2E passed: create → import → activate → reload → gallery → study → persist FSRS → original atlas");
 } finally {
   if (browser) await browser.close();
   server.kill("SIGTERM");
