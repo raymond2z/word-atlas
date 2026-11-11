@@ -1,6 +1,8 @@
 import { flushSync } from "react-dom";
 
-type VTDocument = Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } };
+type VTDocument = Document & {
+  startViewTransition?: (cb: () => void) => { ready: Promise<void>; finished: Promise<void> };
+};
 
 const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -11,7 +13,9 @@ export function transition(update: () => void) {
     update();
     return;
   }
-  d.startViewTransition(() => flushSync(update));
+  const t = d.startViewTransition(() => flushSync(update));
+  // A viewport change can skip the animation while the DOM update still runs.
+  void t.ready.catch(() => undefined);
 }
 
 /** Morph an element (e.g. a gallery tile's illustration) into the word card. */
@@ -26,5 +30,6 @@ export function morphFrom(el: HTMLElement | null | undefined, update: () => void
     el.style.viewTransitionName = "";
     flushSync(update);
   });
+  void t.ready.catch(() => undefined);
   t.finished.finally(() => (el.style.viewTransitionName = ""));
 }
