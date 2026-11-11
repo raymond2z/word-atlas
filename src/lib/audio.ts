@@ -1,55 +1,114 @@
 import { duck } from "./sound";
 
-let current: HTMLAudioElement | null = null;
-let token = 0;
+type Accent = "uk" | "us";
+export type Playback = "recorded" | "device" | "fallback" | "stopped" | "unavailable";
+export const pronunciationError = "無法播放發音。請按朗讀重試，並檢查裝置的英文語音。";
+
+let active: AbortController | undefined;
 
 export function stopAudio() {
-  token++;
-  current?.pause();
-  current = null;
-  if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+  active?.abort();
+  active = undefined;
+  duck(false);
 }
 
-/** Play a recording, falling back to the device voice. Resolves when playback ends. */
-export async function play(url: string | null | undefined, text: string, accent: "uk" | "us" = "uk", rate = 1) {
+export function canSynthesize() {
+  return typeof window.speechSynthesis?.speak === "function" &&
+    typeof window.SpeechSynthesisUtterance === "function";
+}
+
+/** Resolve when audio finishes, fails, or is replaced by another pronunciation. */
+export async function play(
+  url: string | null | undefined,
+  text: string,
+  accent: Accent = "uk",
+  rate = 1,
+  fallbackUrl?: string | null,
+): Promise<Playback> {
+  stopAudio();
+  const controller = new AbortController();
+  const { signal } = controller;
+  active = controller;
   duck(true);
   try {
-    return await speak(url, text, accent, rate);
+    if (url && await playRecording(url, rate, signal)) return "recorded";
+    if (signal.aborted) return "stopped";
+
+    const language = accent === "uk" ? "en-GB" : "en-US";
+    const synth = canSynthesize() ? window.speechSynthesis : undefined;
+    const english = synth?.getVoices().filter((voice) => /^en(?:[-_]|$)/i.test(voice.lang)) ?? [];
+    const preferred = english.find((voice) => voice.lang.replace("_", "-").toLowerCase() === language.toLowerCase());
+    // A bundled fallback is immediately playable when the device lacks the requested voice.
+    const useFallbackFirst = !!fallbackUrl && !preferred;
+    if (useFallbackFirst && await playRecording(fallbackUrl, rate, signal)) return "fallback";
+    if (signal.aborted) return "stopped";
+    if (synth && text.trim() && await playSpeech(synth, text, language, preferred ?? english[0], rate, signal)) return "device";
+    if (signal.aborted) return "stopped";
+    if (!useFallbackFirst && fallbackUrl && await playRecording(fallbackUrl, rate, signal)) return "fallback";
+    return signal.aborted ? "stopped" : "unavailable";
   } finally {
-    duck(false);
+    if (active === controller) {
+      active = undefined;
+      duck(false);
+    }
   }
 }
 
-async function speak(url: string | null | undefined, text: string, accent: "uk" | "us", rate: number) {
-  stopAudio();
-  const mine = ++token;
-  if (url) {
-    const a = new Audio(url);
-    a.playbackRate = rate;
-    current = a;
-    try {
-      await a.play();
-      await new Promise<void>((r) => {
-        a.onended = () => r();
-        a.onpause = () => r();
-      });
-      return "recorded" as const;
-    } catch {
-      if (mine !== token) return "stopped" as const;
-      current = null;
+function playRecording(url: string, rate: number, signal: AbortSignal): Promise<boolean> {
+  return new Promise((resolve) => {
+    const audio = new Audio(url);
+    audio.playbackRate = rate;
+    const ended = () => finish(true);
+    const failed = () => finish(false);
+    const started = () => window.clearTimeout(timeout);
+    const timeout = window.setTimeout(failed, 6000);
+
+    function finish(ok: boolean) {
+      started();
+      audio.removeEventListener("ended", ended);
+      audio.removeEventListener("error", failed);
+      audio.removeEventListener("playing", started);
+      signal.removeEventListener("abort", failed);
+      if (!ok) audio.pause();
+      resolve(ok);
     }
-  }
-  if (!("speechSynthesis" in window)) return "unsupported" as const;
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = accent === "uk" ? "en-GB" : "en-US";
-  u.rate = rate * 0.95;
-  const voices = speechSynthesis.getVoices().filter((v) => v.lang.replace("_", "-") === u.lang);
-  const best = voices.find((v) => /premium|enhanced|natural|google/i.test(v.name)) || voices[0];
-  if (best) u.voice = best;
-  await new Promise<void>((r) => {
-    u.onend = () => r();
-    u.onerror = () => r();
-    speechSynthesis.speak(u);
+
+    audio.addEventListener("ended", ended);
+    audio.addEventListener("error", failed);
+    audio.addEventListener("playing", started);
+    signal.addEventListener("abort", failed, { once: true });
+    void audio.play().catch(failed);
   });
-  return "device" as const;
+}
+
+function playSpeech(
+  synth: SpeechSynthesis,
+  text: string,
+  language: string,
+  voice: SpeechSynthesisVoice | undefined,
+  rate: number,
+  signal: AbortSignal,
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = voice?.lang ?? language;
+    if (voice) utterance.voice = voice;
+    utterance.rate = rate * 0.95;
+
+    const cancel = () => { finish(false); synth.cancel(); };
+    const timeout = window.setTimeout(cancel, 3000);
+    function finish(ok: boolean) {
+      window.clearTimeout(timeout);
+      utterance.onstart = utterance.onend = utterance.onerror = null;
+      signal.removeEventListener("abort", cancel);
+      resolve(ok);
+    }
+
+    utterance.onstart = () => window.clearTimeout(timeout);
+    utterance.onend = () => finish(true);
+    utterance.onerror = () => finish(false);
+    signal.addEventListener("abort", cancel, { once: true });
+    try { synth.speak(utterance); }
+    catch { finish(false); }
+  });
 }

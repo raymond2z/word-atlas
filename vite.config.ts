@@ -85,6 +85,16 @@ function localMedia(
     res.end();
   }
 }
+// Only the owner-private build passes a directory of synthesized MP3s.
+const audioDirectory = process.env.ATLAS_PRIVATE_AUDIO_DIR;
+const privateAudio = audioDirectory ? fs.readdirSync(audioDirectory).flatMap((file) => {
+  const match = /^(personal-[a-z0-9]+)\.mp3$/.exec(file);
+  if (!match) return [];
+  const source = fs.readFileSync(path.join(audioDirectory, file));
+  const hash = createHash("sha256").update(source).digest("hex").slice(0, 12);
+  return [{ id: match[1], fileName: `atlas/audio/personal/${match[1]}-${hash}.mp3`, source }];
+}) : [];
+
 export default defineConfig({
   // Deploy under a sub-path with ATLAS_BASE=/words/ npm run build
   base: process.env.ATLAS_BASE || "/",
@@ -92,6 +102,7 @@ export default defineConfig({
     __WORD_ATLAS_PRESET__: process.env.ATLAS_PRIVATE_PRESET_FILE
       ? JSON.stringify(JSON.parse(fs.readFileSync(process.env.ATLAS_PRIVATE_PRESET_FILE, "utf8")))
       : "null",
+    __WORD_ATLAS_PRIVATE_AUDIO__: JSON.stringify(Object.fromEntries(privateAudio.map(({ id, fileName }) => [id, fileName]))),
   },
   plugins: [
     react(),
@@ -99,6 +110,7 @@ export default defineConfig({
       name: "word-atlas-offline",
       apply: "build",
       generateBundle(_options, bundle) {
+        for (const { fileName, source } of privateAudio) this.emitFile({ type: "asset", fileName, source });
         const worker = fs.readFileSync("scripts/offline-worker.js", "utf8");
         const files = ["", "atlas/index.json", ...Object.keys(bundle).filter((file) => file.startsWith("assets/"))];
         const hash = createHash("sha256").update(worker).update(fs.readFileSync("public/atlas/index.json"));

@@ -67,4 +67,5 @@ export interface Atlas {
   peek: (id: string) => Entry | undefined;
   img: (ref: WordRef | Entry, size?: "thumb" | "full") => string | null;
   audio: (ref: WordRef | Entry, kind: "uk" | "us" | "ex" | "ex2") => string | null;
+  wordFallbackAudio?: (ref: WordRef | Entry) => string | null;
 }

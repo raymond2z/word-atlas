@@ -28,13 +28,17 @@ export function Pronounce({ entry, refw }: { entry: Entry; refw: WordRef | Entry
   const items: ["uk" | "us", string, string][] = both
     ? [["uk", "英", entry.uk], ["us", "美", entry.us]]
     : [[accent, accent === "uk" ? "英" : "美", entry.uk || entry.us]];
-  if (!both && items[0][2] === "") return null;
+  const fallbackUrl = atlas.wordFallbackAudio?.(refw);
+  if (!both && !items[0][2]) {
+    return <Speak url={atlas.audio(refw, accent)} fallbackUrl={fallbackUrl} text={entry.w} accent={accent} size="sm" label="發音" />;
+  }
   return (
     <div className="pron">
       {(accent === "us" ? [...items].reverse() : items).map(([acc, label, ipa]) => (
         <Speak
           key={acc}
           url={atlas.audio(refw, acc)}
+          fallbackUrl={fallbackUrl}
           text={entry.w}
           accent={acc}
           size="sm"

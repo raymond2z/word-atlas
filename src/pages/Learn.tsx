@@ -2,7 +2,7 @@ import { ArrowRight, Check, Lightbulb, RotateCcw, Share2, Volume2, X } from "luc
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { prefetch, useAtlas, useEntry } from "../atlas/context";
 import type { Entry, WordRef } from "../atlas/types";
-import { play, stopAudio } from "../lib/audio";
+import { play, pronunciationError, stopAudio } from "../lib/audio";
 import { burst } from "../lib/burst";
 import { cue } from "../lib/sound";
 import { go } from "../lib/router";
@@ -96,7 +96,7 @@ function Intro({ step }: { step: Step }) {
   const settings = useStore((s) => s.settings);
   const elapsed = useStepTimer();
   useEffect(() => {
-    if (entry && settings.autoplay) void play(atlas.audio(entry, settings.accent), entry.w, settings.accent);
+    if (entry && settings.autoplay) void play(atlas.audio(entry, settings.accent), entry.w, settings.accent, 1, atlas.wordFallbackAudio?.(entry));
   }, [entry, atlas, settings.autoplay, settings.accent]);
   const next = useCallback(() => {
     stopAudio();
@@ -138,6 +138,7 @@ function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: Act
   const pending = session.pending;
   const elapsed = useStepTimer();
   const [hints, setHints] = useState(0);
+  const [audioError, setAudioError] = useState(false);
   const options = useMemo(() => (step.options ?? []).map((id) => atlas.byId.get(id)!).filter(Boolean), [atlas, step.options]);
 
   const submit = useCallback(
@@ -151,7 +152,7 @@ function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: Act
       }
       if (settings.sfx) void cue(correct ? "correct" : "wrong");
       answer(atlas, step, correct, gradeFor(step.kind, correct, ms, hints > 0), value);
-      if (entry) void play(atlas.audio(entry, settings.accent), entry.w, settings.accent);
+      if (entry) void play(atlas.audio(entry, settings.accent), entry.w, settings.accent, 1, atlas.wordFallbackAudio?.(entry));
     },
     [pending, elapsed, settings, atlas, step, hints, entry],
   );
@@ -161,9 +162,16 @@ function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: Act
     advance(elapsed());
   }, [elapsed]);
 
+  const read = useCallback(async (rate = 1) => {
+    if (!entry) return;
+    setAudioError(false);
+    const result = await play(atlas.audio(entry, settings.accent), entry.w, settings.accent, rate, atlas.wordFallbackAudio?.(entry));
+    if (result === "unavailable") setAudioError(true);
+  }, [atlas, entry, settings.accent]);
+
   useEffect(() => {
-    if (step.kind === "listen" && entry && !pending) void play(atlas.audio(entry, settings.accent), entry.w, settings.accent);
-  }, [step.kind, entry, atlas, settings.accent, pending]);
+    if (step.kind === "listen" && entry && !pending) void read();
+  }, [step.kind, entry, pending, read]);
 
   const keys: Record<string, () => void> = {};
   if (pending) {
@@ -191,7 +199,7 @@ function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: Act
             <h2 className="headword" lang="en">
               {entry.w}
             </h2>
-            <Speak url={atlas.audio(entry, settings.accent)} text={entry.w} accent={settings.accent} label={<span className="ipa">{settings.accent === "us" ? entry.us || entry.uk : entry.uk || entry.us}</span>} />
+            <Speak url={atlas.audio(entry, settings.accent)} fallbackUrl={atlas.wordFallbackAudio?.(entry)} text={entry.w} accent={settings.accent} label={<span className="ipa">{settings.accent === "us" ? entry.us || entry.uk : entry.uk || entry.us}</span>} />
           </div>
         )}
         {step.kind === "picture" && (
@@ -213,13 +221,14 @@ function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: Act
         )}
         {step.kind === "listen" && (
           <div className="prompt-listen">
-            <button className="listen-orb" onClick={() => play(atlas.audio(entry, settings.accent), entry.w, settings.accent)} aria-label="再聽一遍">
+            <button className="listen-orb" onClick={() => void read()} aria-label="再聽一遍">
               <Volume2 size={40} strokeWidth={1.6} />
               <span />
             </button>
-            <button className="link" onClick={() => play(atlas.audio(entry, settings.accent), entry.w, settings.accent, 0.7)}>
+            <button className="link" onClick={() => void read(0.7)}>
               慢速再聽
             </button>
+            {audioError && <p role="status" className="warn-text">{pronunciationError}</p>}
           </div>
         )}
         {step.kind === "spell" && <SpellPrompt entry={entry} refw={ref} hints={hints} />}
@@ -271,7 +280,7 @@ function SpellPrompt({ entry, refw, hints }: { entry: Entry; refw: WordRef; hint
             {sentence.after}
           </p>
         )}
-        <Speak url={atlas.audio(entry, accent)} text={entry.w} accent={accent} size="sm" label="聽發音" />
+        <Speak url={atlas.audio(entry, accent)} fallbackUrl={atlas.wordFallbackAudio?.(entry)} text={entry.w} accent={accent} size="sm" label="聽發音" />
       </div>
     </div>
   );
