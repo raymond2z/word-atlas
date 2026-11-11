@@ -98,14 +98,16 @@ export function AtlasPage({
       <header className="atlas-head">
         <div>
           <p className="eyebrow">图鉴 · {atlas.count.toLocaleString()} 词</p>
-          <h1 className="display">
-            每个词，
-            <br className="br-sm" />
-            都有一幅画。
-          </h1>
-          <p className="lede">
-            {atlas.examples.toLocaleString()} 条原创例句 · 英美发音 · 按难度和 {atlas.topics.length} 个雅思话题整理
-          </p>
+          {atlas.kind === "open" ? <>
+            <h1 className="display">
+              每个词，
+              <br className="br-sm" />
+              都有一幅画。
+            </h1>
+            <p className="lede">
+              {atlas.examples.toLocaleString()} 条原创例句 · 英美发音 · 按难度和 {atlas.topics.length} 个雅思话题整理
+            </p>
+          </> : <h1 className="display">{atlas.name}</h1>}
         </div>
         <label className="search">
           <Search size={19} />

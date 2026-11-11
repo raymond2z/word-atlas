@@ -3,6 +3,8 @@ import { MEDIA } from "./types";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const url = (p: string) => `${BASE}/atlas/${p}`;
+const mediaBase = (import.meta.env.VITE_ATLAS_MEDIA_BASE as string | undefined)?.replace(/\/$/, "");
+const mediaUrl = (p: string) => mediaBase ? `${mediaBase}/${p}` : url(p);
 
 interface IndexFile {
   id: string;
@@ -76,12 +78,12 @@ export async function loadOpenAtlas(): Promise<Atlas> {
     },
     img: (ref, size = "full") =>
       ("media" in ref && typeof ref.media === "number" ? ref.media : (ref as Entry).m) & MEDIA.img
-        ? url(`${size === "thumb" ? "thumb" : "img"}/${ref.id}.webp`)
+        ? mediaUrl(`${size === "thumb" ? "thumb" : "img"}/${ref.id}.webp`)
         : null,
     audio(ref, kind) {
       const m = "media" in ref && typeof ref.media === "number" ? ref.media : (ref as Entry).m;
       const bit = MEDIA[kind];
-      return m & bit ? url(`audio/${kind}/${ref.id}.mp3`) : null;
+      return m & bit ? mediaUrl(`audio/${kind}/${ref.id}.mp3`) : null;
     },
   };
 }

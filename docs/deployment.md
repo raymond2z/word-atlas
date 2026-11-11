@@ -20,8 +20,14 @@ location ^~ /words/ {
 
 ## GitHub Pages
 
-仓库带有 `.github/workflows/pages.yml`。在仓库 Settings → Pages 选择 “GitHub Actions”，然后手动运行 “Deploy to GitHub Pages”。
+在仓库 Settings → Pages 选择 “GitHub Actions”，然后手动运行
+“Deploy Word Atlas to GitHub Pages”。工作流会根据 Pages 设置自动使用正确的子路径。
 
 ## 体积
 
 插画与音频合计约数百 MB。建议在 CDN 后部署，或按需只发布 `thumb/` 和部分音频。
+
+预览部署可以在构建时设定
+`VITE_ATLAS_MEDIA_BASE=https://0xlei.tech/words/atlas`，让公开图鉴的图片及录音沿用
+Word Atlas 原站。这种部署可从 `dist/atlas/` 省去 `img`、`thumb` 和 `audio`，
+并须保留 `index.json` 和 `entries/`。自订词库中的学习记录仍在浏览器本机。
