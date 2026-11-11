@@ -83,7 +83,9 @@ try {
     return k && Object.keys(JSON.parse(localStorage.getItem(k)).cards ?? {}).length === 1;
   });
 
-  await page.locator('.topnav a[href="#/decks"]').click();
+  // The focus-mode Learn screen hides the top nav; navigate by URL instead.
+  await page.goto(origin + "/#/decks", { waitUntil: "domcontentloaded" });
+  await page.locator(".my-decks").waitFor();
   await page.getByRole("button", { name: "返回公開圖鑑" }).click();
   await page.locator(".today").waitFor();
   await page.locator('.topnav a[href="#/atlas"]').click();
