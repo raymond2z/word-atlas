@@ -103,7 +103,7 @@ function Shell({ privateAvailable }: { privateAvailable: boolean }) {
   const onboarded = useStore((s) => s.settings.onboarded);
   const theme = useStore((s) => s.settings.theme);
   const [palette, setPalette] = useState(false);
-  const [splash, setSplash] = useState(() => route.page !== "decks" && shouldShowSplash());
+  const [splash, setSplash] = useState(() => navigator.onLine && route.page !== "decks" && shouldShowSplash());
   const focus = route.page === "learn";
 
   useEffect(() => {

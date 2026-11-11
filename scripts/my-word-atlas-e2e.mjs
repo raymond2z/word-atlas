@@ -166,6 +166,7 @@ try {
     });
     throw error;
   }
+  assert.equal(await phone.getByRole("dialog").count(), 0);
   await phone.locator('.tabbar a[href="#/atlas"]').click();
   await phone.getByText("4 词", { exact: false }).first().waitFor();
   await phone.getByRole("button", { name: "星图视图" }).click();
