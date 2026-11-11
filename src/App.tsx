@@ -1,7 +1,8 @@
-import { BookOpen, ChevronLeft, ChevronRight, Compass, Github, Keyboard, Moon, Search, Sun, User } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { BookOpen, BookMarked, ChevronLeft, ChevronRight, Compass, Github, Keyboard, Moon, Search, Sun, User } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { AtlasContext, useAtlas, useEntry } from "./atlas/context";
 import { loadOpenAtlas, loadPrivateAtlas } from "./atlas/data";
+import { customCatalog, makeCustomAtlas } from "./custom/catalog";
 import type { Atlas } from "./atlas/types";
 import { REPO_URL } from "./config";
 import { closeWord, currentLocation, go, openWord, useLocation, type Route } from "./lib/router";
@@ -9,6 +10,7 @@ import { AtlasPage } from "./pages/Atlas";
 import { About } from "./pages/About";
 import { Learn } from "./pages/Learn";
 import { Me } from "./pages/Me";
+import { MyDecks } from "./pages/MyDecks";
 import { Onboarding } from "./pages/Onboarding";
 import { Practice } from "./pages/Practice";
 import { Today } from "./pages/Today";
@@ -25,6 +27,7 @@ import { Toasts } from "./ui/Toast";
 const NAV: { page: Route["page"]; label: string; icon: typeof Compass }[] = [
   { page: "today", label: "今日", icon: Compass },
   { page: "atlas", label: "图鉴", icon: BookOpen },
+  { page: "decks", label: "我的詞庫", icon: BookMarked },
   { page: "practice", label: "练习", icon: Keyboard },
   { page: "me", label: "我的", icon: User },
 ];
@@ -47,6 +50,9 @@ export default function App() {
   const [priv, setPriv] = useState<Atlas | null>(null);
   const [error, setError] = useState<string | null>(null);
   const dataset = useStore((s) => s.settings.dataset);
+  const catalog = useSyncExternalStore(customCatalog.subscribe, customCatalog.getSnapshot, customCatalog.getSnapshot);
+  const activeDeck = catalog.decks.find((d) => d.id === catalog.activeId);
+  const custom = useMemo(() => activeDeck?.words.length ? makeCustomAtlas(activeDeck) : null, [activeDeck]);
   useTheme();
 
   useEffect(() => {
@@ -60,12 +66,13 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const next = dataset === "private" && priv ? priv : open;
+    const next = custom ?? (dataset === "private" && priv ? priv : open);
     if (next && next !== atlas) {
-      store.useDataset(next.id);
+      // Editing an active custom deck should refresh the Atlas without resetting FSRS state.
+      if (!atlas || next.id !== atlas.id) store.useDataset(next.id);
       setAtlas(next);
     }
-  }, [dataset, open, priv, atlas]);
+  }, [dataset, open, priv, custom, atlas]);
 
   if (error)
     return (
@@ -155,6 +162,7 @@ function Shell({ privateAvailable }: { privateAvailable: boolean }) {
       <main className="main" id="main">
         {route.page === "today" && <Today />}
         {route.page === "atlas" && <AtlasPage route={route} />}
+        {route.page === "decks" && <MyDecks />}
         {route.page === "learn" && <Learn />}
         {route.page === "practice" && <Practice />}
         {route.page === "me" && <Me privateAvailable={privateAvailable} />}
