@@ -74,7 +74,7 @@ function targets(w: number, h: number, count: number) {
   g.font = `700 ${zh}px "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", serif`;
   g.textAlign = "center";
   g.textBaseline = "middle";
-  g.fillText("词光", cx, cy + R + zh * 0.78);
+  g.fillText("詞光", cx, cy + R + zh * 0.78);
   const en = Math.max(18, zh * 0.24);
   g.font = `700 ${en}px "Fraunces Variable", Georgia, serif`;
   g.letterSpacing = `${en * 0.34}px`;
@@ -237,22 +237,22 @@ export function Splash({ onDone }: { onDone: () => void }) {
   }); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className={`splash is-${phase} ${reduce ? "is-reduced" : ""}`} onClick={() => open()} role="dialog" aria-label="欢迎打开雅思大门，点击进入">
+    <div className={`splash is-${phase} ${reduce ? "is-reduced" : ""}`} onClick={() => open()} role="dialog" aria-label="歡迎打開雅思大門，點擊進入">
       <div className="door door-l" />
       <div className="door door-r" />
       <div className="splash-light" />
       <canvas ref={canvas} className="splash-canvas" aria-hidden="true" />
       {reduce && (
         <div className="splash-static">
-          <b>词光</b>
+          <b>詞光</b>
           <small>WORD ATLAS</small>
         </div>
       )}
       <div className="splash-copy">
-        <p className="splash-tag">欢迎打开雅思大门</p>
+        <p className="splash-tag">歡迎打開雅思大門</p>
         <p className="splash-hint">
           <span className="splash-key" />
-          点击开启 · 按任意键
+          點擊開啓 · 按任意鍵
         </p>
       </div>
       <button
@@ -262,7 +262,7 @@ export function Splash({ onDone }: { onDone: () => void }) {
           open(false);
         }}
       >
-        跳过
+        跳過
       </button>
     </div>
   );

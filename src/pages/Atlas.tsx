@@ -14,8 +14,8 @@ import { Speak } from "../ui/Speak";
 type Status = "all" | "new" | "learning" | "mastered" | "saved";
 const STATUS: [Status, string][] = [
   ["all", "全部"],
-  ["new", "未学"],
-  ["learning", "学习中"],
+  ["new", "未學"],
+  ["learning", "學習中"],
   ["mastered", "已掌握"],
   ["saved", "收藏"],
 ];
@@ -97,15 +97,15 @@ export function AtlasPage({
     <div className={`page atlas ${view === "galaxy" ? "is-galaxy" : ""}`}>
       <header className="atlas-head">
         <div>
-          <p className="eyebrow">图鉴 · {atlas.count.toLocaleString()} 词</p>
+          <p className="eyebrow">圖鑑 · {atlas.count.toLocaleString()} 詞</p>
           {atlas.kind === "open" ? <>
             <h1 className="display">
-              每个词，
+              每個詞，
               <br className="br-sm" />
-              都有一幅画。
+              都有一幅畫。
             </h1>
             <p className="lede">
-              {atlas.examples.toLocaleString()} 条原创例句 · 英美发音 · 按难度和 {atlas.topics.length} 个雅思话题整理
+              {atlas.examples.toLocaleString()} 條原創例句 · 英美髮音 · 按難度和 {atlas.topics.length} 個雅思話題整理
             </p>
           </> : <h1 className="display">{atlas.name}</h1>}
         </div>
@@ -114,7 +114,7 @@ export function AtlasPage({
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="搜索单词或中文释义"
+            placeholder="搜索單字或中文釋義"
             spellCheck={false}
             autoComplete="off"
           />
@@ -133,12 +133,12 @@ export function AtlasPage({
       <div className="filters">
         {view !== "galaxy" && (
           <>
-            <div className="chips chips-scroll" role="group" aria-label="难度">
+            <div className="chips chips-scroll" role="group" aria-label="難度">
               <button
                 className={`chip-btn ${!level ? "is-on" : ""}`}
                 onClick={() => setFilter({ level: undefined })}
               >
-                所有难度
+                所有難度
               </button>
               {atlas.cefr.map((l) => (
                 <button
@@ -152,12 +152,12 @@ export function AtlasPage({
                 </button>
               ))}
             </div>
-            <div className="chips chips-scroll" role="group" aria-label="主题">
+            <div className="chips chips-scroll" role="group" aria-label="主題">
               <button
                 className={`chip-btn ${!topic ? "is-on" : ""}`}
                 onClick={() => setFilter({ topic: undefined })}
               >
-                所有主题
+                所有主題
               </button>
               {atlas.topics.map(([k, name]) => (
                 <button
@@ -175,7 +175,7 @@ export function AtlasPage({
         )}
         <div className="filters-row">
           {view !== "galaxy" && (
-            <div className="segmented" role="group" aria-label="学习状态">
+            <div className="segmented" role="group" aria-label="學習狀態">
               {STATUS.map(([k, label]) => (
                 <button
                   key={k}
@@ -190,18 +190,18 @@ export function AtlasPage({
           )}
           <span className="result-count">
             {view === "galaxy"
-              ? "搜索一个词，星图会带你飞过去"
-              : `${list.length.toLocaleString()} 个结果`}
+              ? "搜索一個詞，星圖會帶你飛過去"
+              : `${list.length.toLocaleString()} 個結果`}
           </span>
           <div
             className="segmented segmented-icons"
             role="group"
-            aria-label="视图"
+            aria-label="視圖"
           >
             <button
               className={view === "grid" ? "is-on" : ""}
               onClick={() => setView("grid")}
-              aria-label="图片视图"
+              aria-label="圖片視圖"
               aria-pressed={view === "grid"}
             >
               <Grid3x3 size={17} />
@@ -209,7 +209,7 @@ export function AtlasPage({
             <button
               className={view === "list" ? "is-on" : ""}
               onClick={() => setView("list")}
-              aria-label="列表视图"
+              aria-label="列表視圖"
               aria-pressed={view === "list"}
             >
               <List size={17} />
@@ -217,7 +217,7 @@ export function AtlasPage({
             <button
               className={view === "galaxy" ? "is-on" : ""}
               onClick={() => setView("galaxy")}
-              aria-label="星图视图"
+              aria-label="星圖視圖"
               aria-pressed={view === "galaxy"}
             >
               <Sparkles size={17} />
@@ -231,7 +231,7 @@ export function AtlasPage({
       ) : list.length === 0 ? (
         <div className="empty">
           <img src={`${import.meta.env.BASE_URL}brand/empty.webp`} alt="" />
-          <p>这片星域还没有词。换个筛选条件试试。</p>
+          <p>這片星域還沒有詞。換個篩選條件試試。</p>
         </div>
       ) : view === "grid" ? (
         <VirtualGrid items={list} cards={cards} />

@@ -106,10 +106,10 @@ export async function renderWordCard(atlas: Atlas, e: Entry) {
   ctx.fillRect(pad, H - 120, art, 2);
   ctx.fillStyle = "#1E2640";
   ctx.font = `600 34px ${SERIF}`;
-  ctx.fillText("词光 · Word Atlas", pad, H - 62);
+  ctx.fillText("詞光 · Word Atlas", pad, H - 62);
   ctx.font = `400 26px ${SANS}`;
   ctx.fillStyle = "#7A7C88";
-  const tag = "一词一画，点亮雅思";
+  const tag = "一詞一畫，點亮雅思";
   ctx.fillText(tag, W - pad - ctx.measureText(tag).width, H - 64);
   return c;
 }
@@ -129,8 +129,8 @@ export async function shareWord(atlas: Atlas, e: Entry) {
     a.download = file.name;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-    toast("分享卡片已保存", "ok");
+    toast("分享卡片已儲存", "ok");
   } catch {
-    toast("卡片生成失败，请稍后再试", "warn");
+    toast("卡片生成失敗，請稍後再試", "warn");
   }
 }

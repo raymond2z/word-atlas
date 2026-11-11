@@ -5,6 +5,7 @@ export type Route =
   | { page: "today" }
   | { page: "atlas"; topic?: string; level?: string; q?: string; view?: string }
   | { page: "decks" }
+  | { page: "backup"; deck?: string }
   | { page: "learn" }
   | { page: "practice" }
   | { page: "me" }
@@ -25,6 +26,7 @@ function parse(hash: string): Location {
   if (seg[0] === "atlas")
     route = { page: "atlas", topic: params.get("topic") || undefined, level: params.get("level") || undefined, q: params.get("q") || undefined, view: params.get("view") || undefined };
   else if (seg[0] === "decks") route = { page: "decks" };
+  else if (seg[0] === "backup") route = { page: "backup", deck: params.get("deck") || undefined };
   else if (seg[0] === "learn") route = { page: "learn" };
   else if (seg[0] === "practice") route = { page: "practice" };
   else if (seg[0] === "me") route = { page: "me" };
@@ -41,6 +43,7 @@ export function href(route: Route, word?: string | null) {
     if (route.q) params.set("q", route.q);
     if (route.view) params.set("view", route.view);
   }
+  if (route.page === "backup" && route.deck) params.set("deck", route.deck);
   if (word) params.set("w", word);
   const q = params.toString();
   return `#/${route.page === "today" ? "" : route.page}${q ? `?${q}` : ""}`;

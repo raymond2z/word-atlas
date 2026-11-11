@@ -48,13 +48,13 @@ export function Palette({ open, onClose }: { open: boolean; onClose: () => void 
   };
   return (
     <div className="palette-root" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="palette" role="dialog" aria-modal="true" aria-label="搜索单词">
+      <div className="palette" role="dialog" aria-modal="true" aria-label="搜索單字">
         <label className="palette-input">
           <Search size={20} />
           <input
             ref={input}
             value={q}
-            placeholder="搜索英文或中文，例如 serendipity / 环境"
+            placeholder="搜索英文或中文，例如 serendipity / 環境"
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Escape") onClose();
@@ -94,11 +94,11 @@ export function Palette({ open, onClose }: { open: boolean; onClose: () => void 
               {i === sel && <CornerDownLeft size={15} className="palette-enter" />}
             </li>
           ))}
-          {q && !results.length && <li className="palette-empty">没有找到「{q}」</li>}
+          {q && !results.length && <li className="palette-empty">沒有找到「{q}」</li>}
           {!q && (
             <li className="palette-hint">
-              {atlas.count.toLocaleString()} 个词条 · 支持英文前缀与中文释义搜索 · <kbd>↑</kbd>
-              <kbd>↓</kbd> 选择 <kbd>↵</kbd> 打开
+              {atlas.count.toLocaleString()} 個詞條 · 支持英文前綴與中文釋義搜索 · <kbd>↑</kbd>
+              <kbd>↓</kbd> 選擇 <kbd>↵</kbd> 打開
             </li>
           )}
         </ul>

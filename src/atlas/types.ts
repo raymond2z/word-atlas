@@ -46,6 +46,7 @@ export interface WordRef {
   cefr: number;
   topic: number;
   media: number;
+  hasExample?: boolean;
   /** Position in the learning path. */
   order: number;
 }

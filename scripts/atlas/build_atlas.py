@@ -145,6 +145,7 @@ def main():
         "license": "CC BY 4.0",
         "count": len(index),
         "examples": sum(len(c["ex"]) for c in entries),
+        "withoutExamples": [c["id"] for c in entries if not any(e["en"].strip() for e in c["ex"])],
         "illustrated": sum(1 for m in flags if m & 1),
         "voiced": sum(1 for m in flags if m & 2),
         "chunk": 100,

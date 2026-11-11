@@ -61,19 +61,38 @@ try {
   const activeId = await page.evaluate(() => JSON.parse(localStorage.getItem("my-word-atlas:catalog:v1")).activeId);
   assert.ok(activeId);
 
+  await page.locator(".active-deck").getByText(/My IELTS Sample.*4 詞/).waitFor();
+  await page.getByRole("link", { name: "切換詞庫" }).waitFor();
+  await page.locator('.topnav a[href="#/practice"]').click();
+  await page.getByRole("button", { name: /^例句/ }).click();
+  await page.getByText("這個來源的詞條沒有英文例句。").waitFor();
+  await page.getByRole("button", { name: /^聽寫/ }).click();
+  await page.getByRole("button", { name: "改練單字" }).click();
+  await page.getByText("可練 4 題，本輪隨機抽 4 題。").waitFor();
+  await page.locator('.topnav a[href="#/decks"]').click();
+  await page.locator(".my-deck-word").filter({ hasText: "versatile" }).getByRole("button", { name: "編輯" }).click();
+  await page.getByLabel("英文例句", { exact: true }).fill("This is a versatile tool.");
+  await page.getByRole("button", { name: "儲存單字" }).click();
+  await page.locator('.topnav a[href="#/practice"]').click();
+  await page.getByRole("button", { name: /^例句/ }).click();
+  await page.getByText("可練 1 題，本輪隨機抽 1 題。").waitFor();
+  await page.getByRole("button", { name: "開始一輪" }).click();
+  await page.locator(".typing-stage").waitFor();
+  assert.equal(await page.locator(".typing-text").textContent(), "This is a versatile tool.");
+  await page.locator('.topnav a[href="#/"]').click();
   await page.reload();
   await page.locator(".today").waitFor();
   const reloadedId = await page.evaluate(() => JSON.parse(localStorage.getItem("my-word-atlas:catalog:v1")).activeId);
   assert.equal(reloadedId, activeId); // Selecting a deck does not write an empty FSRS file.
   await page.locator('.topnav a[href="#/atlas"]').click();
   await page.locator(".atlas").waitFor();
-  await page.getByText("4 词", { exact: false }).first().waitFor();
+  await page.getByText("4 詞", { exact: false }).first().waitFor();
   // Make a real first answer before checking FSRS persistence.
   await page.locator('.topnav a[href="#/"]').click();
-  await page.getByRole("button", { name: /开始今天的旅程/ }).click();
+  await page.getByRole("button", { name: /開始今天的旅程/ }).click();
   await page.locator(".intro").waitFor();
   for (let i = 0; i < 4; i++) {
-    await page.getByRole("button", { name: /认识了/ }).click();
+    await page.getByRole("button", { name: /認識了/ }).click();
   }
   await page.locator(".quiz .options button").first().click();
   await page.waitForFunction(() => {
@@ -91,6 +110,9 @@ try {
   // The focus-mode Learn screen hides the top nav; navigate by URL instead.
   await page.goto(origin + "#/decks", { waitUntil: "domcontentloaded" });
   await page.locator(".my-decks").waitFor();
+  await page.locator('.topnav a[href="#/me"]').click();
+  await page.getByRole("link", { name: "備份與還原" }).click();
+  await page.getByRole("heading", { name: "完整備份" }).waitFor();
   const backupDownload = page.waitForEvent("download");
   await page.getByRole("button", { name: "備份詞庫與進度" }).click();
   const backup = await readFile(await (await backupDownload).path());
@@ -98,11 +120,14 @@ try {
   assert.equal(saved.deck.words.length, 4);
   assert.equal(Object.keys(saved.progress.cards).length, 1);
   assert.equal(saved.progress.session, null);
+  assert.equal(saved.settings.accent, "uk");
+  await page.getByText(/上次下載備份 (?!尚無紀錄)/).waitFor();
+  await page.getByRole("link", { name: "管理詞庫" }).click();
   await page.getByRole("button", { name: "返回公開圖鑑" }).click();
   await page.locator(".today").waitFor();
   await page.locator('.topnav a[href="#/atlas"]').click();
   await page.locator(".atlas").waitFor();
-  await page.getByText("7,298 词", { exact: false }).first().waitFor();
+  await page.getByText("7,298 詞", { exact: false }).first().waitFor();
   assert.deepEqual(pageErrors, []);
 
   const mobile = await browser.newContext({
@@ -141,9 +166,11 @@ try {
       .decks.map((deck) => deck.words.map((word) => word.id)));
     assert.deepEqual(wordLists[0], wordLists[1]);
   }
+  await phone.getByRole("link", { name: "備份與還原" }).click();
+  await phone.getByLabel("同時套用個人詞庫備份內的設定").check();
   await phone.getByLabel("學習備份 JSON").setInputFiles({ name: "deck-backup.json", mimeType: "application/json", buffer: backup });
   await phone.getByRole("status").filter({ hasText: "已還原 1 個詞庫副本和 1 張 FSRS 詞卡" }).waitFor();
-  await phone.getByRole("button", { name: "使用此詞庫開始學習" }).click();
+  await phone.getByRole("button", { name: "使用還原的詞庫" }).click();
   await phone.locator(".today").waitFor();
   const restored = await phone.evaluate(() => {
     const { activeId } = JSON.parse(localStorage.getItem("my-word-atlas:catalog:v1"));
@@ -151,6 +178,7 @@ try {
   });
   assert.notEqual(restored.datasetId, saved.progress.datasetId);
   assert.deepEqual(restored.cards, saved.progress.cards);
+  assert.equal(await phone.evaluate(() => JSON.parse(localStorage.getItem("word-atlas:settings")).autoplay), false);
   await phone.waitForFunction(() => !!navigator.serviceWorker.controller);
   await mobile.setOffline(true);
   try {
@@ -168,11 +196,11 @@ try {
   }
   assert.equal(await phone.getByRole("dialog").count(), 0);
   await phone.locator('.tabbar a[href="#/atlas"]').click();
-  await phone.getByText("4 词", { exact: false }).first().waitFor();
-  await phone.getByRole("button", { name: "星图视图" }).click();
-  await phone.getByRole("img", { name: /词汇星图：4 颗星，已点亮 1 颗/ }).waitFor();
+  await phone.getByText("4 詞", { exact: false }).first().waitFor();
+  await phone.getByRole("button", { name: "星圖視圖" }).click();
+  await phone.getByRole("img", { name: /詞彙星圖：4 顆星，已點亮 1 顆/ }).waitFor();
   await phone.locator('.tabbar a[href="#/"]').click();
-  await phone.getByRole("button", { name: /开始今天的旅程/ }).click();
+  await phone.getByRole("button", { name: /開始今天的旅程/ }).click();
   await phone.locator(".intro, .quiz").waitFor();
   assert.deepEqual(mobileErrors, []);
   assert.equal(await phone.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
