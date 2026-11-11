@@ -4139,3 +4139,31 @@ a:hover .mark-needle,
 .my-deck-fields label { display: grid; gap: 0.3rem; font-weight: 600; font-size: 0.92rem; }
 .my-deck-fields label input, .my-deck-fields label select { width: 100%; }
 @media(max-width:650px) { .my-deck-word { align-items: flex-start; flex-direction: column; } }
+
+.active-deck {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.75rem;
+  margin-top: 0.75rem;
+  overflow-wrap: anywhere;
+}
+.active-deck svg { flex: none; }
+.learn-deck {
+  text-align: center;
+  padding: 0 1rem;
+  margin: 0.25rem 0;
+  overflow-wrap: anywhere;
+}
+.backup-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 1rem;
+}
+.backup-grid .panel { overflow-wrap: anywhere; }
+.backup-option {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  margin: 1rem 0;
+}

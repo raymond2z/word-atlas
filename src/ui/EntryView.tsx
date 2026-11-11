@@ -64,12 +64,12 @@ export function EntryView({ entry, mode = "detail", eager = true }: { entry: Ent
     const hit = atlas.words.find((x) => x.word.toLowerCase() === w);
     return { label: f, id: hit?.id };
   });
-  const status = card ? (isMastered(card) ? "已掌握" : "学习中") : null;
+  const status = card ? (isMastered(card) ? "已掌握" : "學習中") : null;
 
   return (
     <article className={`entry entry-${mode}`}>
       <div className="entry-art">
-        <Illustration src={atlas.img(entry)} word={entry.w} topic={topicIdx} eager={eager} alt={`${entry.w} 插画`} />
+        <Illustration src={atlas.img(entry)} word={entry.w} topic={topicIdx} eager={eager} alt={`${entry.w} 插畫`} />
       </div>
       <div className="entry-body">
         <header className="entry-head">
@@ -121,7 +121,7 @@ export function EntryView({ entry, mode = "detail", eager = true }: { entry: Ent
             <ul className="examples">
               {entry.ex.map((x, i) => (
                 <li key={i}>
-                  {entry.ex.length > 1 && <span className={`ex-tag ${i ? "is-ielts" : ""}`}>{i ? "雅思语境" : "日常"}</span>}
+                  {entry.ex.length > 1 && <span className={`ex-tag ${i ? "is-ielts" : ""}`}>{i ? "雅思語境" : "日常"}</span>}
                   <p className="ex-en" lang="en">
                     <Highlight text={x.en} word={entry.w} />
                     <Speak url={exUrls[i] ?? null} text={x.en} accent={i === 1 && exUrls[1] ? "us" : accent} size="sm" className="ex-speak" />
@@ -154,7 +154,7 @@ export function EntryView({ entry, mode = "detail", eager = true }: { entry: Ent
           <section className="block relations">
             {famLinks.length > 0 && (
               <div>
-                <h3 className="eyebrow">词族</h3>
+                <h3 className="eyebrow">詞族</h3>
                 <p>
                   {famLinks.map((f) =>
                     f.id && mode === "detail" ? (
@@ -170,13 +170,13 @@ export function EntryView({ entry, mode = "detail", eager = true }: { entry: Ent
             )}
             {entry.syn.length > 0 && (
               <div>
-                <h3 className="eyebrow">近义</h3>
+                <h3 className="eyebrow">近義</h3>
                 <p>{entry.syn.map((s) => <span key={s}>{s}</span>)}</p>
               </div>
             )}
             {entry.ant.length > 0 && (
               <div>
-                <h3 className="eyebrow">反义</h3>
+                <h3 className="eyebrow">反義</h3>
                 <p>{entry.ant.map((s) => <span key={s}>{s}</span>)}</p>
               </div>
             )}
@@ -194,7 +194,7 @@ export function EntryView({ entry, mode = "detail", eager = true }: { entry: Ent
 
         {mode === "detail" && card && (
           <p className="memory-note">
-            {card.due <= Date.now() ? "现在可以复习" : `下次复习 ${formatInterval(card.due - Date.now())}后`} · 记忆稳定度 {card.s < 1 ? "<1" : Math.round(card.s)} 天 · 已复习 {card.reps} 次
+            {card.due <= Date.now() ? "現在可以複習" : `下次複習 ${formatInterval(card.due - Date.now())}後`} · 記憶穩定度 {card.s < 1 ? "<1" : Math.round(card.s)} 天 · 已複習 {card.reps} 次
           </p>
         )}
       </div>

@@ -11,18 +11,18 @@ export function About() {
       <header className="about-hero">
         <img src={`${BASE}brand/og.webp`} alt="" />
         <div>
-          <p className="eyebrow">关于词光</p>
-          <h1 className="display">一词一画，点亮雅思。</h1>
+          <p className="eyebrow">關於詞光</p>
+          <h1 className="display">一詞一畫，點亮雅思。</h1>
           <p className="lede">
-            词光把雅思阅读 8000 词整理成 {atlas.count.toLocaleString()} 个词条。每个词一幅原创插画，一句日常例句，一句雅思例句，配英美发音、常用搭配和易混提示。学会一个，就在你的星图上点亮一颗星。
+            詞光把雅思閱讀 8000 詞整理成 {atlas.count.toLocaleString()} 個詞條。每個詞一幅原創插畫，一句日常例句，一句雅思例句，配英美髮音、常用搭配和易混提示。學會一個，就在你的星圖上點亮一顆星。
           </p>
-          <p className="lede">它免费、开源、无需注册。代码用 MIT，词库用 CC BY 4.0，谁都可以拿去用。</p>
+          <p className="lede">它免費、開源、無需註冊。代碼用 MIT，詞庫用 CC BY 4.0，誰都可以拿去用。</p>
           <div className="about-actions">
             <a className="btn btn-primary" href={REPO_URL} target="_blank" rel="noreferrer">
               <Github size={18} /> 在 GitHub 上查看
             </a>
             <a className="btn btn-ghost" href={`${REPO_URL}/tree/main/data`} target="_blank" rel="noreferrer">
-              <Database size={18} /> 下载词库 JSON / CSV
+              <Database size={18} /> 下載詞庫 JSON / CSV
             </a>
           </div>
         </div>
@@ -30,83 +30,83 @@ export function About() {
 
       <div className="about-grid">
         <section className="panel">
-          <h3 className="eyebrow">为什么记得住</h3>
+          <h3 className="eyebrow">爲什麼記得住</h3>
           <ul className="feature-list">
             <li>
-              <b>先看见。</b>每个词都有一幅画，画的就是第一句例句里发生的事。
+              <b>先看見。</b>每個詞都有一幅畫，畫的就是第一句例句裏發生的事。
             </li>
             <li>
-              <b>再想起。</b>选义、看图补句、听音辨词、拼写，从认得走到会写。
+              <b>再想起。</b>選義、看圖補句、聽音辨詞、拼寫，從認得走到會寫。
             </li>
             <li>
-              <b>刚好在快忘时重逢。</b>FSRS 是新版 Anki 用的开源记忆算法，只在你快要遗忘时安排复习。
+              <b>剛好在快忘時重逢。</b>FSRS 是新版 Anki 用的開源記憶算法，只在你快要遺忘時安排複習。
             </li>
             <li>
-              <b>分数诚实。</b>只算第一次作答。答错的词会换个题型再见一面，但不会抬高正确率。
+              <b>分數誠實。</b>只算第一次作答。答錯的詞會換個題型再見一面，但不會抬高正確率。
             </li>
             <li>
-              <b>进度只属于你。</b>没有账号，没有服务器，数据存在你的浏览器里，随时能导出。
+              <b>進度只屬於你。</b>沒有帳號，沒有伺服器，資料存在你的瀏覽器裏，隨時能匯出。
             </li>
           </ul>
         </section>
 
         <section className="panel">
-          <h3 className="eyebrow">快捷键</h3>
+          <h3 className="eyebrow">快捷鍵</h3>
           <dl className="keys">
             <div>
               <dt>
                 <kbd>⌘</kbd>
                 <kbd>K</kbd> 或 <kbd>/</kbd>
               </dt>
-              <dd>搜索任何词</dd>
+              <dd>搜索任何詞</dd>
             </div>
             <div>
               <dt>
                 <kbd>1</kbd>–<kbd>4</kbd>
               </dt>
-              <dd>选择答案</dd>
+              <dd>選擇答案</dd>
             </div>
             <div>
               <dt>
                 <kbd>Enter</kbd>
               </dt>
-              <dd>确认 / 继续</dd>
+              <dd>確認 / 繼續</dd>
             </div>
             <div>
               <dt>
                 <kbd>←</kbd> <kbd>→</kbd>
               </dt>
-              <dd>词卡里切换上一个、下一个</dd>
+              <dd>詞卡里切換上一個、下一個</dd>
             </div>
             <div>
               <dt>
                 <kbd>Esc</kbd>
               </dt>
-              <dd>关闭弹窗</dd>
+              <dd>關閉彈窗</dd>
             </div>
           </dl>
         </section>
 
         <section className="panel">
-          <h3 className="eyebrow">内容从哪里来</h3>
+          <h3 className="eyebrow">內容從哪裏來</h3>
           <p className="muted">
-            释义、例句、搭配和提示由大语言模型按统一的词典规范重新撰写；插画由图像模型按统一画风逐词绘制；发音和朗读由 ElevenLabs 合成（英音 Alice，美音 Sarah）。所有内容都经过结构和一致性的自动校验，但没有逐条人工审校。看到错的地方，欢迎在 GitHub 提 Issue，或者直接改数据提 PR。
+            釋義、例句、搭配和提示由大語言模型按統一的詞典規範重新撰寫；插畫由圖像模型按統一畫風逐詞繪製；發音和朗讀由 ElevenLabs 合成（英音 Alice，美音 Sarah）。所有內容都經過結構和一致性的自動校驗，但沒有逐條人工審校。看到錯的地方，歡迎在 GitHub 提 Issue，或者直接改資料提 PR。
           </p>
-          <p className="muted">词光不是官方雅思词表，也不承诺提分。它只想把背单词这件事，做得好看一点、扎实一点。</p>
+          <p className="muted">詞光不是官方雅思詞表，也不承諾提分。它只想把背單字這件事，做得好看一點、紮實一點。</p>
         </section>
 
         <section className="panel">
-          <h3 className="eyebrow">给开发者</h3>
+          <h3 className="eyebrow">給開發者</h3>
           <p className="muted">
-            <code>data/word-atlas.json</code> 和 <code>.csv</code> 是完整词库；<code>public/atlas</code> 里是网页用的分块数据、插画和音频。拿去做 Anki 牌组、背词小程序、浏览器插件，或者 AI 应用的评测集，署名即可。
+            <code>data/word-atlas.json</code> 和 <code>.csv</code> 是完整詞庫；<code>public/atlas</code> 裏是網頁用的分塊資料、插畫和音頻。拿去做 Anki 牌組、背詞小程序、瀏覽器插件，或者 AI 應用的評測集，署名即可。
           </p>
           <a className="link" href={`${REPO_URL}#readme`} target="_blank" rel="noreferrer">
-            阅读文档 <ArrowUpRight size={14} />
+            閱讀文檔 <ArrowUpRight size={14} />
           </a>
         </section>
       </div>
       <p className="colophon">
-        <Heart size={14} /> 做给每一个在背单词的人。
+        <Heart size={14} /> 做給每一個在背單字的人。
       </p>
     </div>
   );

@@ -1,4 +1,4 @@
-import { ArrowRight, Flame, Keyboard, Sparkles } from "lucide-react";
+import { ArrowRight, BookOpen, Flame, Keyboard, Sparkles } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { prefetch, useAtlas, useEntry } from "../atlas/context";
 import { go, openWord } from "../lib/router";
@@ -81,6 +81,11 @@ export function Today() {
           {now.getMonth() + 1}月{now.getDate()}日 · 星期{"日一二三四五六"[now.getDay()]}
         </p>
         <h1 className="display">{greeting(now.getHours())}，探索者。</h1>
+        <div className="active-deck">
+          <BookOpen size={18} aria-hidden="true" />
+          <span>目前詞庫 <b>{atlas.kind === "open" ? "Word Atlas 公開圖鑑" : atlas.name}</b> · {atlas.count.toLocaleString()} 詞</span>
+          <a className="link" href="#/decks">切換詞庫</a>
+        </div>
       </header>
 
       <section className={`journey ${total === 0 && !active ? "is-clear" : ""}`}>
@@ -88,11 +93,11 @@ export function Today() {
         <div className="journey-body">
           {active ? (
             <>
-              <p className="eyebrow eyebrow-light">旅程进行中</p>
+              <p className="eyebrow eyebrow-light">旅程進行中</p>
               <h2>
-                还剩 <b>{active.steps.length - active.index}</b> 步
+                還剩 <b>{active.steps.length - active.index}</b> 步
               </h2>
-              <p className="journey-lede">进度已保存，随时接着走。</p>
+              <p className="journey-lede">進度已儲存，隨時接着走。</p>
             </>
           ) : total > 0 ? (
             <>
@@ -100,51 +105,51 @@ export function Today() {
               <h2>
                 {plan.due.length > 0 && (
                   <>
-                    复习 <b>{plan.due.length}</b>
+                    複習 <b>{plan.due.length}</b>
                   </>
                 )}
                 {plan.due.length > 0 && plan.fresh.length > 0 && <i> · </i>}
                 {plan.fresh.length > 0 && (
                   <>
-                    新词 <b>{plan.fresh.length}</b>
+                    新詞 <b>{plan.fresh.length}</b>
                   </>
                 )}
               </h2>
-              <p className="journey-lede">约 {plan.minutes} 分钟。先温故，再知新。</p>
+              <p className="journey-lede">約 {plan.minutes} 分鐘。先溫故，再知新。</p>
             </>
           ) : (
             <>
               <p className="eyebrow eyebrow-light">今日已完成</p>
               <h2>今天的星，都亮了。</h2>
-              <p className="journey-lede">记忆需要一点留白。想多走一段，也可以。</p>
+              <p className="journey-lede">記憶需要一點留白。想多走一段，也可以。</p>
             </>
           )}
           {teaser.length > 0 && (
-            <div className="teaser" aria-label="今天将遇见的新词">
+            <div className="teaser" aria-label="今天將遇見的新詞">
               {teaser.map((w, i) => (
                 <Illustration key={w.id} src={atlas.img(w, "thumb")} word={w.word} topic={w.topic} className={`teaser-${i}`} />
               ))}
-              <span>今天会遇见它们</span>
+              <span>今天會遇見它們</span>
             </div>
           )}
           <div className="journey-actions">
             {active || total > 0 ? (
               <button className="btn btn-primary btn-xl" onClick={() => start()}>
-                {active ? "继续旅程" : "开始今天的旅程"} <ArrowRight size={20} />
+                {active ? "繼續旅程" : "開始今天的旅程"} <ArrowRight size={20} />
               </button>
             ) : (
               <button className="btn btn-primary btn-xl" onClick={() => start({ extra: 5 })}>
-                再认识 5 个新词 <Sparkles size={18} />
+                再認識 5 個新詞 <Sparkles size={18} />
               </button>
             )}
             {!active && plan.due.length > 0 && plan.fresh.length > 0 && (
               <button className="btn btn-glass" onClick={() => start({ reviewOnly: true })}>
-                只复习
+                只複習
               </button>
             )}
             {!active && total === 0 && (
               <button className="btn btn-glass" onClick={() => go({ page: "practice" })}>
-                <Keyboard size={18} /> 打字练习
+                <Keyboard size={18} /> 打字練習
               </button>
             )}
           </div>
@@ -156,19 +161,19 @@ export function Today() {
 
         <section className="panel streak-panel">
           <div className="panel-head">
-            <h3 className="eyebrow">这一周</h3>
+            <h3 className="eyebrow">這一週</h3>
             <span className={`streak ${streak ? "is-on" : ""}`}>
-              <Flame size={16} /> 连续 {streak} 天
+              <Flame size={16} /> 連續 {streak} 天
             </span>
           </div>
           <div className="streak-body">
             <Ring value={goal ? doneToday / goal : 0} size={112} stroke={8} tone="terra">
               <b>{doneToday}</b>
-              <small>今日答题</small>
+              <small>今日答題</small>
             </Ring>
             <ol className="week">
               {week.map((d) => (
-                <li key={d.k} className={`${d.v ? "is-on" : ""} ${d.today ? "is-today" : ""}`} title={`${d.k}：${d.v} 题`}>
+                <li key={d.k} className={`${d.v ? "is-on" : ""} ${d.today ? "is-today" : ""}`} title={`${d.k}：${d.v} 題`}>
                   <span style={{ "--h": Math.min(1, d.v / 40) } as React.CSSProperties} />
                   <small>{d.label}</small>
                 </li>
@@ -177,7 +182,7 @@ export function Today() {
           </div>
           <dl className="mini-stats">
             <div>
-              <dt>已点亮</dt>
+              <dt>已點亮</dt>
               <dd>{learned.toLocaleString()}</dd>
             </div>
             <div>
@@ -185,7 +190,7 @@ export function Today() {
               <dd>{mastered.toLocaleString()}</dd>
             </div>
             <div>
-              <dt>全部词汇</dt>
+              <dt>全部詞彙</dt>
               <dd>{atlas.count.toLocaleString()}</dd>
             </div>
           </dl>
@@ -214,13 +219,13 @@ function GalaxyPanel({ learned, total }: { learned: number; total: number }) {
     <section className="galaxy-panel" onClick={() => go({ page: "atlas", view: "galaxy" })} role="link" tabIndex={0} onKeyDown={(e) => e.key === "Enter" && go({ page: "atlas", view: "galaxy" })}>
       <Galaxy mode="mini" highlight={todayIds} />
       <div className="galaxy-panel-copy">
-        <p className="eyebrow eyebrow-light">你的词汇星图</p>
+        <p className="eyebrow eyebrow-light">你的詞彙星圖</p>
         <h3>
-          已点亮 <b>{learned.toLocaleString()}</b> 颗星
+          已點亮 <b>{learned.toLocaleString()}</b> 顆星
         </h3>
-        <p>{learned ? `还有 ${(total - learned).toLocaleString()} 颗在等你。金色是今天新点亮的。` : `${total.toLocaleString()} 个词是 ${total.toLocaleString()} 颗星。学会一个，就点亮一颗。`}</p>
+        <p>{learned ? `還有 ${(total - learned).toLocaleString()} 顆在等你。金色是今天新點亮的。` : `${total.toLocaleString()} 個詞是 ${total.toLocaleString()} 顆星。學會一個，就點亮一顆。`}</p>
         <span className="btn btn-glass">
-          进入星图 <ArrowRight size={18} />
+          進入星圖 <ArrowRight size={18} />
         </span>
       </div>
     </section>
@@ -237,10 +242,10 @@ function WordOfDay() {
   const { entry } = useEntry(pick?.id);
   if (!pick) return null;
   return (
-    <section className="panel wotd" onClick={() => openWord(pick.id)} role="button" tabIndex={0} onKeyDown={(e) => e.key === "Enter" && openWord(pick.id)} aria-label={`今日一词：${pick.word}`}>
+    <section className="panel wotd" onClick={() => openWord(pick.id)} role="button" tabIndex={0} onKeyDown={(e) => e.key === "Enter" && openWord(pick.id)} aria-label={`今日一詞：${pick.word}`}>
       <Illustration src={atlas.img(pick)} word={pick.word} topic={pick.topic} className="wotd-art" />
       <div className="wotd-body">
-        <h3 className="eyebrow">今日一词</h3>
+        <h3 className="eyebrow">今日一詞</h3>
         <p className="wotd-word" lang="en">
           {pick.word}
         </p>
@@ -277,13 +282,13 @@ function LevelPath() {
     }
     return out;
   }, [atlas, cards]);
-  const NAMES = ["入门", "基础", "进阶", "中高", "高级", "精通"];
+  const NAMES = ["入門", "基礎", "進階", "中高", "高級", "精通"];
   return (
     <section className="panel path-panel">
       <div className="panel-head">
-        <h3 className="eyebrow">学习路线 · 从 A1 到 C2</h3>
+        <h3 className="eyebrow">學習路線 · 從 A1 到 C2</h3>
         <span className="legend">
-          <i className="lg-seen" /> 已学 <i className="lg-done" /> 已掌握
+          <i className="lg-seen" /> 已學 <i className="lg-done" /> 已掌握
         </span>
       </div>
       <ol className="route">
@@ -292,7 +297,7 @@ function LevelPath() {
           const done = l.mastered / Math.max(1, l.total);
           return (
             <li key={l.name} className={`${i === start ? "is-start" : ""} ${l.seen ? "is-on" : ""}`}>
-              <button onClick={() => go({ page: "atlas", level: l.name })} aria-label={`${l.name} ${NAMES[i]}，已学 ${l.seen} / ${l.total}`}>
+              <button onClick={() => go({ page: "atlas", level: l.name })} aria-label={`${l.name} ${NAMES[i]}，已學 ${l.seen} / ${l.total}`}>
                 <span className="station" style={{ "--seen": seen, "--done": done } as React.CSSProperties}>
                   <b>{l.name}</b>
                 </span>
@@ -301,7 +306,7 @@ function LevelPath() {
                   {l.seen}
                   <small>/{l.total}</small>
                 </span>
-                {i === start && <span className="station-flag">起点</span>}
+                {i === start && <span className="station-flag">起點</span>}
               </button>
             </li>
           );
@@ -321,9 +326,9 @@ function Topics() {
   return (
     <section className="topics-panel">
       <div className="panel-head">
-        <h3 className="eyebrow">按雅思话题探索</h3>
+        <h3 className="eyebrow">按雅思話題探索</h3>
         <button className="link" onClick={() => go({ page: "atlas" })}>
-          打开图鉴
+          打開圖鑑
         </button>
       </div>
       <ul className="topic-tiles">
@@ -333,7 +338,7 @@ function Topics() {
               <img src={`${BRAND}/topic-${key}.webp`} alt="" loading="lazy" onError={(e) => (e.currentTarget.style.visibility = "hidden")} />
               <span>
                 <b>{name}</b>
-                <small>{counts[i]} 个词</small>
+                <small>{counts[i]} 個詞</small>
               </span>
             </button>
           </li>

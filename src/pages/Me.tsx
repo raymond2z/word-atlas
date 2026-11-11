@@ -1,8 +1,8 @@
-import { Download, RotateCcw, Upload } from "lucide-react";
-import { useMemo, useRef } from "react";
+import { Download, RotateCcw } from "lucide-react";
+import { useMemo } from "react";
 import { useAtlas } from "../atlas/context";
 import { isMastered } from "../store/srs";
-import { dayKey, exportBackup, importBackup, resetProgress, store, useStore, type Settings } from "../store/store";
+import { dayKey, resetProgress, store, useStore, type Settings } from "../store/store";
 import { toast } from "../ui/Toast";
 import { streakOf } from "./Today";
 
@@ -11,7 +11,6 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
   const progress = useStore((s) => s.progress);
   const settings = useStore((s) => s.settings);
   const saveError = useStore((s) => s.saveError);
-  const file = useRef<HTMLInputElement>(null);
 
   const stats = useMemo(() => {
     const cards = Object.values(progress.cards);
@@ -33,19 +32,6 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
   }, [progress]);
 
   const set = (patch: Partial<Settings>) => store.settings(patch);
-  const download = () => {
-    const blob = new Blob([exportBackup()], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `word-atlas-backup-${dayKey()}.json`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-  };
-  const restore = async (f: File) => {
-    if (f.size > 30 * 1024 * 1024) return toast("文件太大，不像是学习备份。", "warn");
-    const r = importBackup(await f.text());
-    toast(r.ok ? `已恢复 ${r.cards} 个词的记忆` : r.error, r.ok ? "ok" : "warn");
-  };
   const maxF = Math.max(1, ...stats.forecast);
 
   return (
@@ -57,45 +43,45 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
 
       <section className="stat-strip">
         <div>
-          <dt>连续学习</dt>
+          <dt>連續學習</dt>
           <dd>
             {streakOf(progress.days)}
             <small>天</small>
           </dd>
         </div>
         <div>
-          <dt>已点亮</dt>
+          <dt>已點亮</dt>
           <dd>{stats.learned.toLocaleString()}</dd>
         </div>
         <div>
-          <dt>长期记住</dt>
+          <dt>長期記住</dt>
           <dd>{stats.mastered.toLocaleString()}</dd>
         </div>
         <div>
-          <dt>首次正确率</dt>
+          <dt>首次正確率</dt>
           <dd>
             {stats.accuracy}
             <small>%</small>
           </dd>
         </div>
         <div>
-          <dt>学习时长</dt>
+          <dt>學習時長</dt>
           <dd>
             {stats.minutes}
-            <small>分钟</small>
+            <small>分鐘</small>
           </dd>
         </div>
       </section>
 
       <div className="me-grid">
         <section className="panel">
-          <h3 className="eyebrow">过去 20 周</h3>
+          <h3 className="eyebrow">過去 20 周</h3>
           <Heatmap days={progress.days} />
-          <p className="muted">一格是一天，颜色越深，那天答得越多。「长期记住」指记忆稳定度超过 21 天。</p>
+          <p className="muted">一格是一天，顏色越深，那天答得越多。「長期記住」指記憶穩定度超過 21 天。</p>
         </section>
 
         <section className="panel">
-          <h3 className="eyebrow">未来 7 天的复习量</h3>
+          <h3 className="eyebrow">未來 7 天的複習量</h3>
           <ol className="forecast">
             {stats.forecast.map((n, i) => (
               <li key={i}>
@@ -108,8 +94,8 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
         </section>
 
         <section className="panel settings">
-          <h3 className="eyebrow">学习设置</h3>
-          <Field label="每日新词" hint="复习不设上限，算法只安排快要遗忘的词。">
+          <h3 className="eyebrow">學習設置</h3>
+          <Field label="每日新詞" hint="複習不設上限，算法只安排快要遺忘的詞。">
             <div className="segmented">
               {[5, 10, 15, 20, 30].map((n) => (
                 <button key={n} className={settings.dailyNew === n ? "is-on" : ""} onClick={() => set({ dailyNew: n })}>
@@ -118,7 +104,7 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
               ))}
             </div>
           </Field>
-          <Field label="从哪个难度开始" hint="跳过已经熟悉的低级别词。">
+          <Field label="從哪個難度開始" hint="跳過已經熟悉的低級別詞。">
             <div className="segmented">
               {atlas.cefr.map((l, i) => (
                 <button key={l} className={settings.startLevel === i ? "is-on" : ""} onClick={() => set({ startLevel: i })}>
@@ -127,7 +113,7 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
               ))}
             </div>
           </Field>
-          <Field label="目标记忆率" hint="越高复习越频繁。90% 是大多数人的甜点。">
+          <Field label="目標記憶率" hint="越高複習越頻繁。90% 是大多數人的甜點。">
             <div className="segmented">
               {[0.85, 0.9, 0.95].map((n) => (
                 <button key={n} className={settings.retention === n ? "is-on" : ""} onClick={() => set({ retention: n })}>
@@ -136,7 +122,7 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
               ))}
             </div>
           </Field>
-          <Field label="发音">
+          <Field label="發音">
             <div className="segmented">
               <button className={settings.accent === "uk" ? "is-on" : ""} onClick={() => set({ accent: "uk" })}>
                 英式
@@ -146,12 +132,12 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
               </button>
             </div>
           </Field>
-          <Field label="外观">
+          <Field label="外觀">
             <div className="segmented">
               {(
                 [
-                  ["system", "跟随系统"],
-                  ["light", "浅色"],
+                  ["system", "跟隨系統"],
+                  ["light", "淺色"],
                   ["dark", "深色"],
                 ] as const
               ).map(([k, l]) => (
@@ -161,15 +147,15 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
               ))}
             </div>
           </Field>
-          <Toggle label="自动播放发音" on={settings.autoplay} set={(v) => set({ autoplay: v })} />
-          <Toggle label="界面音效" on={settings.sfx} set={(v) => set({ sfx: v })} />
-          <Toggle label="开屏动画（每天一次）" on={settings.splash} set={(v) => set({ splash: v })} />
-          <Toggle label="复习时加入拼写题" on={settings.spell} set={(v) => set({ spell: v })} />
+          <Toggle label="自動播放發音" on={settings.autoplay} set={(v) => set({ autoplay: v })} />
+          <Toggle label="介面音效" on={settings.sfx} set={(v) => set({ sfx: v })} />
+          <Toggle label="開屏動畫（每天一次）" on={settings.splash} set={(v) => set({ splash: v })} />
+          <Toggle label="複習時加入拼寫題" on={settings.spell} set={(v) => set({ spell: v })} />
           {privateAvailable && (
-            <Field label="词库" hint="私人词库只在本机开发服务器中可用，不会被打包发布。">
+            <Field label="詞庫" hint="私人詞庫只在本機開發伺服器中可用，不會被打包發佈。">
               <div className="segmented">
                 <button className={settings.dataset === "open" ? "is-on" : ""} onClick={() => set({ dataset: "open" })}>
-                  开放图鉴
+                  開放圖鑑
                 </button>
                 <button className={settings.dataset === "private" ? "is-on" : ""} onClick={() => set({ dataset: "private" })}>
                   私人 8000
@@ -180,27 +166,23 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
         </section>
 
         <section className="panel">
-          <h3 className="eyebrow">数据</h3>
-          <p className="muted">进度只存在这台设备的浏览器里：没有账号，没有服务器。换设备时，导出备份再导入即可。</p>
-          {saveError && <p className="warn-text">浏览器拒绝保存（可能是隐私模式或空间已满）。请尽快导出备份。</p>}
+          <h3 className="eyebrow">資料</h3>
+          <p className="muted">進度只存在這臺裝置的瀏覽器裏：沒有帳號，沒有伺服器。換裝置時，匯出備份再匯入即可。</p>
+          {saveError && <p className="warn-text">瀏覽器拒絕儲存（可能是隱私模式或空間已滿）。請儘快匯出備份。</p>}
           <div className="data-actions">
-            <button className="btn btn-ghost" onClick={download}>
-              <Download size={18} /> 导出备份
-            </button>
-            <button className="btn btn-ghost" onClick={() => file.current?.click()}>
-              <Upload size={18} /> 导入备份
-            </button>
-            <input ref={file} type="file" accept="application/json,.json" hidden onChange={(e) => e.target.files?.[0] && restore(e.target.files[0]).finally(() => (e.target.value = ""))} />
+            <a className="btn btn-ghost" href="#/backup">
+              <Download size={18} /> 備份與還原
+            </a>
             <button
               className="btn btn-ghost btn-danger"
               onClick={() => {
-                if (confirm("确定清空这个词库的全部学习记录？此操作无法撤销，建议先导出备份。")) {
+                if (confirm("確定清空這個詞庫的全部學習記錄？此操作無法撤銷，建議先匯出備份。")) {
                   resetProgress();
-                  toast("学习记录已清空");
+                  toast("學習記錄已清空");
                 }
               }}
             >
-              <RotateCcw size={18} /> 清空记录
+              <RotateCcw size={18} /> 清空記錄
             </button>
           </div>
         </section>
@@ -245,9 +227,9 @@ function Heatmap({ days }: { days: Record<string, { r: number }> }) {
   }
   const lvl = (v: number) => (v === 0 ? 0 : v < 10 ? 1 : v < 25 ? 2 : v < 50 ? 3 : 4);
   return (
-    <div className="heatmap" role="img" aria-label="学习热力图">
+    <div className="heatmap" role="img" aria-label="學習熱力圖">
       {cells.map((c) => (
-        <span key={c.k} className={`h${c.future ? "x" : lvl(c.v)}`} title={`${c.k} · ${c.v} 题`} />
+        <span key={c.k} className={`h${c.future ? "x" : lvl(c.v)}`} title={`${c.k} · ${c.v} 題`} />
       ))}
     </div>
   );

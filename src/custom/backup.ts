@@ -1,6 +1,6 @@
 import { customCatalog, customDatasetId, importVocabulary, newDeckId, object, parseWord, type PersonalDeck } from "./catalog";
 import { Rating, review, type Grade } from "../store/srs";
-import { dayKey, emptyProgress, readDeckProgress, restoreNewDeckProgress, sanitizeProgress, type Progress } from "../store/store";
+import { dayKey, emptyProgress, readDeckProgress, restoreNewDeckProgress, sanitizeProgress, sanitizeSettings, store, type Progress, type Settings } from "../store/store";
 
 const FORMAT = "my-word-atlas-personal-backup";
 const LEGACY_FORMAT = "my-word-atlas-backup-v1";
@@ -12,11 +12,13 @@ interface RestorePlan {
   reviews: number;
   skippedRecords: number;
   legacy: boolean;
+  settings?: Settings;
 }
 
 export function exportPersonalBackup(deck: PersonalDeck): string {
   const progress = readDeckProgress(customDatasetId(deck.id));
-  return JSON.stringify({ format: FORMAT, version: 1, deck, progress: { ...progress, session: null } }, null, 1);
+  return JSON.stringify({ format: FORMAT, version: 2, exported: new Date().toISOString(), deck,
+    progress: { ...progress, session: null }, settings: store.get().settings }, null, 1);
 }
 
 function restoreDeck(source: Record<string, unknown>, name: unknown) {
@@ -37,7 +39,7 @@ function restoreDeck(source: Record<string, unknown>, name: unknown) {
 export function parsePersonalBackup(data: unknown): RestorePlan | null {
   if (!object(data)) return null;
   if (data.format === FORMAT) {
-    if (data.version !== 1 || !object(data.deck) || !object(data.progress) || data.progress.version !== 2 ||
+    if ((data.version !== 1 && data.version !== 2) || !object(data.deck) || !object(data.progress) || data.progress.version !== 2 ||
       !object(data.progress.cards) || typeof data.deck.id !== "string" || data.progress.datasetId !== customDatasetId(data.deck.id)) {
       throw new Error("詞庫備份版本或學習資料不相符。");
     }
@@ -51,7 +53,8 @@ export function parsePersonalBackup(data: unknown): RestorePlan | null {
     progress.cards = Object.fromEntries(cards);
     progress.bookmarks = mapIds(progress.bookmarks);
     progress.mistakes = mapIds(progress.mistakes);
-    return { decks: [{ deck, progress }], reviews: 0, skippedRecords: Object.keys(data.progress.cards).length - cards.length, legacy: false };
+    return { decks: [{ deck, progress }], reviews: 0, skippedRecords: Object.keys(data.progress.cards).length - cards.length, legacy: false,
+      settings: data.version === 2 && object(data.settings) ? sanitizeSettings(data.settings) : undefined };
   }
   if (data.format !== LEGACY_FORMAT) return null;
   if (!object(data.state) || data.state.schema !== 1 || !object(data.state.decks) || !object(data.state.progress)) {

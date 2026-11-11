@@ -1,8 +1,8 @@
 import { Download, FileUp, Plus, Trash2, BookOpen } from "lucide-react";
 import { useRef, useState, useSyncExternalStore } from "react";
 import { customCatalog, importVocabulary, type PersonalWord } from "../custom/catalog";
-import { exportPersonalBackup, installPersonalBackup, MAX_BACKUP_BYTES, parsePersonalBackup } from "../custom/backup";
-import { go } from "../lib/router";
+import { useAtlas } from "../atlas/context";
+import { go, href } from "../lib/router";
 import { store, useStore } from "../store/store";
 
 type Draft = {
@@ -22,6 +22,7 @@ function saveText(name: string, contents: string, mime: string) {
 const idSafe = (s: string) => s.toLowerCase().replace(/[^a-z0-9_-]+/g, "-") || "my-deck";
 
 export function MyDecks() {
+  const atlas = useAtlas();
   const catalog = useSyncExternalStore(customCatalog.subscribe, customCatalog.getSnapshot, customCatalog.getSnapshot);
   const [manageId, setManageId] = useState("");
   const deck = catalog.decks.find((d) => d.id === manageId) ?? catalog.decks.find((d) => d.id === catalog.activeId) ?? catalog.decks[0];
@@ -33,7 +34,6 @@ export function MyDecks() {
   const [query, setQuery] = useState("");
   const [limit, setLimit] = useState(60);
   const input = useRef<HTMLInputElement>(null);
-  const backupInput = useRef<HTMLInputElement>(null);
   const activeSession = useStore((s) => s.progress.session);
   const busy = catalog.activeId === deck?.id && !!activeSession && !activeSession.finished;
 
@@ -64,27 +64,6 @@ export function MyDecks() {
       setMessage("成功新增 " + report.added + " 筆，原有 " + report.existing +
         " 筆、檔內重複 " + parsed.duplicates + " 筆、缺資料略過 " + parsed.skipped + " 筆。");
     } catch (e) { setProblem(e instanceof Error ? e.message : "檔案匯入失敗。"); }
-  };
-  const restore = async (file: File) => {
-    setProblem("");
-    setMessage("");
-    try {
-      if (file.size > MAX_BACKUP_BYTES) throw new Error("備份檔案超過 10 MB。");
-      let data: unknown;
-      try { data = JSON.parse((await file.text()).replace(/^\uFEFF/, "")); }
-      catch { throw new Error("備份檔案必須是有效的 JSON。"); }
-      const plan = parsePersonalBackup(data);
-      if (!plan) throw new Error("這個檔案沒有學習紀錄。純詞庫請使用「匯入 CSV / JSON」。");
-      installPersonalBackup(plan);
-      setManageId(plan.decks[0].deck.id);
-      setEditing(null);
-      setQuery("");
-      setLimit(60);
-      const cards = plan.decks.reduce((total, { progress }) => total + Object.keys(progress.cards).length, 0);
-      const replayed = plan.legacy ? "，重播 " + plan.reviews + " 次舊版複習" : "";
-      const skipped = plan.skippedRecords ? "，略過 " + plan.skippedRecords + " 筆無法對應的紀錄" : "";
-      setMessage(`已還原 ${plan.decks.length} 個詞庫副本和 ${cards} 張 FSRS 詞卡${replayed}${skipped}。`);
-    } catch (e) { setProblem(e instanceof Error ? e.message : "備份還原失敗。"); }
   };
   const startEdit = (w?: PersonalWord) => {
     setEditing(w?.id ?? "new");
@@ -117,32 +96,31 @@ export function MyDecks() {
 
     <section className="panel" style={{ marginBottom: 20 }}>
       <h2>目前使用的詞庫</h2>
-      <p className="muted">{catalog.activeId
-        ? (catalog.decks.find((d) => d.id === catalog.activeId)?.name ?? "自訂詞庫")
-        : "Word Atlas 公開圖鑑（原版 7,298 字）"}</p>
-      <button className="btn btn-ghost" onClick={() => safe(() => { customCatalog.select(null); go({ page: "today" }); })}>
-        <BookOpen size={17}/> 返回公開圖鑑
-      </button>
+      <p>{atlas.kind === "open" ? "Word Atlas 公開圖鑑" : atlas.name} · {atlas.count.toLocaleString()} 詞</p>
+      <div className="my-deck-row">
+        {atlas.kind !== "open" && <button className="btn btn-ghost" onClick={() => safe(() => {
+          customCatalog.select(null);
+          store.settings({ dataset: "open" });
+          go({ page: "today" });
+        })}><BookOpen size={17} /> 返回公開圖鑑</button>}
+        <a className="btn btn-ghost" href="#/backup">備份與還原</a>
+      </div>
     </section>
 
     <section className="panel" style={{ marginBottom: 20 }}>
-      <h2>建立詞庫</h2>
-      <div className="my-deck-row">
-        <input aria-label="新詞庫名稱" value={newName} onChange={(e) => setNewName(e.target.value)}
-          placeholder="例如 IELTS Academic / STEM English" maxLength={80}/>
-        <button className="btn btn-primary" onClick={create}><Plus size={17}/> 建立</button>
-        <button className="btn btn-ghost" onClick={() => backupInput.current?.click()}><FileUp size={17}/> 還原學習備份</button>
-        <input ref={backupInput} hidden type="file" aria-label="學習備份 JSON" accept=".json,application/json" onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) void restore(file);
-          e.target.value = "";
-        }}/>
-      </div>
-      <div className="my-deck-list">
+      <h2>個人詞庫</h2>
+      <div className="my-deck-list" aria-label="選擇要管理的詞庫">
         {catalog.decks.map((d) => <button key={d.id} className={"chip-btn " + (deck?.id === d.id ? "is-on" : "")}
+          aria-pressed={deck?.id === d.id}
           onClick={() => { setManageId(d.id); setEditing(null); setQuery(""); setLimit(60); }}>
           {d.name} · {d.words.length} 字{catalog.activeId === d.id ? " · 使用中" : ""}
         </button>)}
+        {!catalog.decks.length && <p className="muted">建立詞庫後，即可匯入或新增單字。</p>}
+      </div>
+      <div className="my-deck-row">
+        <input aria-label="新詞庫名稱" value={newName} onChange={(e) => setNewName(e.target.value)}
+          placeholder="例如 IELTS Academic / STEM English" maxLength={80}/>
+        <button className="btn btn-ghost" onClick={create}><Plus size={17}/> 建立</button>
       </div>
     </section>
 
@@ -156,12 +134,11 @@ export function MyDecks() {
         <button className="btn btn-ghost" disabled={busy} onClick={() => input.current?.click()}><FileUp size={17}/> 匯入 CSV / JSON</button>
         <button className="btn btn-ghost" onClick={() =>
           saveText(idSafe(deck.name) + ".json", JSON.stringify({ app: "my-word-atlas-custom-deck", version: 1, name: deck.name, words: deck.words }, null, 2), "application/json")}>
-          <Download size={17}/> 匯出詞庫 JSON
+          <Download size={17}/> 只匯出詞庫 JSON
         </button>
-        <button className="btn btn-ghost" disabled={!deck.words.length} onClick={() =>
-          saveText(idSafe(deck.name) + "-backup.json", exportPersonalBackup(deck), "application/json")}>
-          <Download size={17}/> 備份詞庫與進度
-        </button>
+        {deck.words.length > 0 && <a className="btn btn-ghost" href={href({ page: "backup", deck: deck.id })}>
+          <Download size={17}/> 完整備份
+        </a>}
         <button className="btn btn-ghost" onClick={() => startEdit()}><Plus size={17}/> 新增單字</button>
         <input ref={input} hidden type="file" aria-label="詞庫 CSV 或 JSON" accept=".csv,.json,text/csv,application/json" onChange={(e) => {
           const file = e.target.files?.[0]; if (file) void upload(file);
@@ -209,8 +186,5 @@ export function MyDecks() {
       </div>
     </section>}
 
-    <section className="panel"><h2>備份與換裝置</h2>
-      <p className="muted">學習資料保存在這個瀏覽器。換裝置前，下載「備份詞庫與進度」，再用「還原學習備份」建立副本。也可用同一按鈕匯入 V1.4.1 備份，系統會按原來的複習日期與評分重算 FSRS 排程。</p>
-    </section>
   </div>;
 }

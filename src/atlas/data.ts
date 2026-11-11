@@ -16,12 +16,14 @@ interface IndexFile {
   topics: [string, string][];
   cefr: string[];
   words: IndexRow[];
+  withoutExamples?: string[];
 }
 
 export async function loadOpenAtlas(): Promise<Atlas> {
   const res = await fetch(url("index.json"));
-  if (!res.ok) throw new Error(`词库索引加载失败（${res.status}）`);
+  if (!res.ok) throw new Error(`詞庫索引加載失敗（${res.status}）`);
   const idx = (await res.json()) as IndexFile;
+  const withoutExamples = new Set(idx.withoutExamples);
   const words: WordRef[] = idx.words.map((r, order) => ({
     id: r[0],
     word: r[1],
@@ -30,6 +32,7 @@ export async function loadOpenAtlas(): Promise<Atlas> {
     cefr: r[4],
     topic: r[5],
     media: r[6],
+    hasExample: !withoutExamples.has(r[0]),
     order,
   }));
   const byId = new Map(words.map((w) => [w.id, w]));
@@ -41,7 +44,7 @@ export async function loadOpenAtlas(): Promise<Atlas> {
     if (!p) {
       p = fetch(url(`entries/${n}.json`))
         .then((r) => {
-          if (!r.ok) throw new Error(`词条加载失败（${r.status}）`);
+          if (!r.ok) throw new Error(`詞條加載失敗（${r.status}）`);
           return r.json() as Promise<Entry[]>;
         })
         .then((list) => list.forEach((e) => cache.set(e.id, e)))
@@ -70,10 +73,10 @@ export async function loadOpenAtlas(): Promise<Atlas> {
       const hit = cache.get(id);
       if (hit) return hit;
       const ref = byId.get(id);
-      if (!ref) throw new Error(`没有找到词条 ${id}`);
+      if (!ref) throw new Error(`沒有找到詞條 ${id}`);
       await loadChunk(Math.floor(ref.order / idx.chunk));
       const e = cache.get(id);
-      if (!e) throw new Error(`没有找到词条 ${id}`);
+      if (!e) throw new Error(`沒有找到詞條 ${id}`);
       return e;
     },
     img: (ref, size = "full") =>
@@ -156,14 +159,14 @@ export async function loadPrivateAtlas(open: Atlas | null): Promise<Atlas | null
     count: words.length,
     examples: [...entries.values()].reduce((n, e) => n + e.ex.length, 0),
     illustrated: words.filter((w) => w.media & MEDIA.img).length,
-    topics: open?.topics ?? [["thinking", "综合"]],
+    topics: open?.topics ?? [["thinking", "綜合"]],
     cefr: open?.cefr ?? ["A1", "A2", "B1", "B2", "C1", "C2"],
     words,
     byId,
     peek: (id) => entries.get(id),
     entry: async (id) => {
       const e = entries.get(id);
-      if (!e) throw new Error(`没有找到词条 ${id}`);
+      if (!e) throw new Error(`沒有找到詞條 ${id}`);
       return e;
     },
     img: (ref) => pick(ref)?.img ?? null,
