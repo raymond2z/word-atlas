@@ -2986,6 +2986,10 @@ code {
   inset: 0;
   font-size: 16px;
 }
+.typing-speak {
+  position: relative;
+  z-index: 1; /* Keep the button above the transparent input covering the typing area. */
+}
 .typing-help {
   font-size: 13px;
 }

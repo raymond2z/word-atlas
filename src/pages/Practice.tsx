@@ -243,7 +243,7 @@ function TypingRound({ mode, entries, onExit, onAgain, loading }: { mode: Mode; 
         {mode !== "word" && (
           e.ex[0].zh && <p className="typing-zh">{e.ex[0].zh}</p>
         )}
-        <button className="btn btn-ghost" type="button" onClick={(event) => {
+        <button className="btn btn-ghost typing-speak" type="button" onClick={(event) => {
           event.stopPropagation();
           setAudioState(null);
           void read().then(reportAudio);
