@@ -4,6 +4,7 @@ import { transition } from "./motion";
 export type Route =
   | { page: "today" }
   | { page: "atlas"; topic?: string; level?: string; q?: string; view?: string }
+  | { page: "decks" }
   | { page: "learn" }
   | { page: "practice" }
   | { page: "me" }
@@ -23,6 +24,7 @@ function parse(hash: string): Location {
   let route: Route = { page: "today" };
   if (seg[0] === "atlas")
     route = { page: "atlas", topic: params.get("topic") || undefined, level: params.get("level") || undefined, q: params.get("q") || undefined, view: params.get("view") || undefined };
+  else if (seg[0] === "decks") route = { page: "decks" };
   else if (seg[0] === "learn") route = { page: "learn" };
   else if (seg[0] === "practice") route = { page: "practice" };
   else if (seg[0] === "me") route = { page: "me" };
