@@ -231,7 +231,7 @@ export function makeCustomAtlas(deck: PersonalDeck, open: Atlas | null = null): 
     });
     return { id: w.id, word: w.word, zh: [w.pos, w.zh].filter(Boolean).join(" "), ipa: w.uk || w.us || "",
       cefr: Math.max(0, levels.indexOf(w.cefr as typeof LEVELS[number])),
-      topic: Math.max(0, categories.indexOf(w.topic)), media, order };
+      topic: Math.max(0, categories.indexOf(w.topic)), media, hasExample: !!w.example, order };
   });
   const byId = new Map(words.map((w) => [w.id, w]));
   return {
@@ -261,13 +261,33 @@ export function makeCustomAtlas(deck: PersonalDeck, open: Atlas | null = null): 
 
 export function installPreset(catalog: CatalogState, preset: unknown): CatalogState {
   if (!object(preset) || typeof preset.id !== "string" || !/^preset-[a-z0-9-]{1,70}$/.test(preset.id) ||
-      catalog.installedPreset === preset.id || !Array.isArray(preset.words) || preset.words.length > MAX_WORDS) return catalog;
+      !Array.isArray(preset.words) || preset.words.length > MAX_WORDS) return catalog;
   const name = cutoff(text(preset.name), 80);
   const words = [...new Map(preset.words.map(parseWord).filter((word): word is PersonalWord => !!word)
     .map((word) => [key(word.word), word])).values()];
   if (!name || !words.length) return catalog;
 
   const installedPreset = preset.id;
+  if (catalog.installedPreset === installedPreset) {
+    const deck = catalog.decks.find((item) => item.id === installedPreset);
+    if (!deck) return catalog;
+    const examples = new Map(words.filter((word) => word.example).map((word) => [word.id, word]));
+    let updated = false;
+    const enriched = deck.words.map((word) => {
+      const supplied = examples.get(word.id);
+      if (!supplied || word.zh !== supplied.zh || (word.pos && word.pos !== supplied.pos)) return word;
+      if (word.example) return word;
+      updated = true;
+      return {
+        ...word,
+        pos: word.pos || supplied.pos,
+        example: supplied.example,
+        exampleZh: supplied.exampleZh,
+        collocations: word.collocations.length ? word.collocations : supplied.collocations,
+      };
+    });
+    return updated ? { ...catalog, decks: catalog.decks.map((item) => item === deck ? { ...deck, words: enriched } : item) } : catalog;
+  }
   const alreadyImported = catalog.decks.some((deck) => {
     if (deck.id === installedPreset) return true;
     if (deck.words.length < words.length) return false;

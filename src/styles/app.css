@@ -1565,6 +1565,16 @@ code {
   gap: 10px;
   margin-top: 22px;
 }
+.daily-duration {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+.daily-duration [aria-pressed="true"] {
+  background: #fbf8f2;
+  color: #1e2640;
+}
 .journey .btn-primary {
   background: #fbf8f2;
   color: #1e2640;
@@ -2621,8 +2631,85 @@ code {
 }
 .spell-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 10px;
+}
+.guided-intro {
+  max-width: 620px;
+  margin: 0 auto;
+  padding: clamp(20px, 6vw, 40px);
+  border: 1px solid var(--line-strong);
+  border-radius: 22px;
+  background: var(--card);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.guided-meaning { margin: 14px 0 0; font-size: 20px; }
+.guided-example {
+  border-top: 1px solid var(--line-strong);
+  margin-top: 20px;
+  padding-top: 16px;
+  line-height: 1.55;
+}
+.guided-example p + p { margin-top: 8px; }
+.guided-example p:first-child { font-size: 21px; }
+.guided-spelling {
+  display: grid;
+  gap: 12px;
+  max-width: 480px;
+  margin: 0 auto 24px;
+}
+.guided-spelling input {
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--card);
+  color: inherit;
+  font: inherit;
+  font-size: 20px;
+}
+.guided-prefix { text-align: center; }
+.spelling-correction {
+  margin: 0 auto 20px;
+  text-align: center;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.spelling-correction mark {
+  color: var(--terra-ink);
+  background: var(--terra-soft);
+  text-decoration: underline;
+}
+.guided-results {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 26px 0;
+}
+.guided-results div {
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  padding: 12px 4px;
+}
+.guided-results dd { margin: 4px 0 0; font-size: 21px; font-weight: 600; }
+.guided-recap-words {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  padding: 0;
+  margin: 12px 0 22px;
+  list-style: none;
+}
+.guided-recap-words li {
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 6px 10px;
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
 
 .feedback {

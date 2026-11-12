@@ -1,10 +1,10 @@
 import { ArrowRight, BookOpen, Flame, Keyboard, Sparkles } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { prefetch, useAtlas, useEntry } from "../atlas/context";
 import { go, openWord } from "../lib/router";
 import { cue } from "../lib/sound";
 import { hashSeed } from "../lib/text";
-import { buildSession, masteredCount, todayPlan } from "../store/session";
+import { buildGuidedSession, guidedPlan, masteredCount } from "../store/session";
 import { isMastered } from "../store/srs";
 import { dayKey, store, useStore } from "../store/store";
 import { Galaxy } from "../galaxy/Galaxy";
@@ -37,9 +37,10 @@ export function Today() {
   const atlas = useAtlas();
   const progress = useStore((s) => s.progress);
   const settings = useStore((s) => s.settings);
-  const plan = useMemo(() => todayPlan(atlas, progress, settings), [atlas, progress, settings]);
+  const [minutes, setMinutes] = useState<5 | 10>(5);
+  const plan = useMemo(() => guidedPlan(atlas, progress, settings, minutes), [atlas, progress, settings, minutes]);
   // Warm the first cards of today's journey so the session opens instantly.
-  const firstIds = [...plan.due.slice(0, 4), ...plan.fresh.slice(0, 6)].join(",");
+  const firstIds = [...plan.review.slice(0, 4), ...plan.fresh].join(",");
   useEffect(() => {
     const ids = firstIds.split(",").filter(Boolean);
     const t = window.setTimeout(() => void prefetch(atlas, ids), 800);
@@ -49,13 +50,14 @@ export function Today() {
   const today = progress.days[dayKey()];
   const streak = streakOf(progress.days);
   const active = progress.session && !progress.session.finished ? progress.session : null;
-  const total = plan.due.length + plan.fresh.length;
+  const total = plan.review.length + plan.fresh.length;
   const goal = settings.dailyNew + Math.min(plan.due.length, 60);
   const doneToday = today?.r ?? 0;
 
-  const start = (opts?: { reviewOnly?: boolean; extra?: number }) => {
+  const start = (extra?: number) => {
     if (!active) {
-      const s = buildSession(atlas, progress, opts?.extra ? { ...settings, dailyNew: (today?.n ?? 0) + opts.extra } : settings, { reviewOnly: opts?.reviewOnly });
+      const current = store.get();
+      const s = buildGuidedSession(atlas, current.progress, current.settings, minutes, extra);
       if (!s.steps.length) return;
       store.progress((p) => ({ ...p, session: s }));
     }
@@ -72,7 +74,7 @@ export function Today() {
 
   const learned = Object.keys(progress.cards).length;
   const mastered = masteredCount(progress);
-  const teaser = (active ? active.newIds : plan.fresh).slice(0, 5).map((id) => atlas.byId.get(id)!).filter(Boolean);
+  const unseen = atlas.words.some((word) => !progress.cards[word.id]);
 
   return (
     <div className="page today">
@@ -93,7 +95,7 @@ export function Today() {
         <div className="journey-body">
           {active ? (
             <>
-              <p className="eyebrow eyebrow-light">旅程進行中</p>
+              <p className="eyebrow eyebrow-light">練習進行中</p>
               <h2>
                 還剩 <b>{active.steps.length - active.index}</b> 步
               </h2>
@@ -101,52 +103,42 @@ export function Today() {
             </>
           ) : total > 0 ? (
             <>
-              <p className="eyebrow eyebrow-light">今日旅程</p>
+              <p className="eyebrow eyebrow-light">今日練習</p>
               <h2>
-                {plan.due.length > 0 && (
-                  <>
-                    複習 <b>{plan.due.length}</b>
-                  </>
-                )}
-                {plan.due.length > 0 && plan.fresh.length > 0 && <i> · </i>}
-                {plan.fresh.length > 0 && (
-                  <>
-                    新詞 <b>{plan.fresh.length}</b>
-                  </>
-                )}
+                複習 <b>{plan.review.length}</b> 詞 <i>·</i> 新詞 <b>{plan.fresh.length}</b> 詞
               </h2>
-              <p className="journey-lede">約 {plan.minutes} 分鐘。先溫故，再知新。</p>
+              <p className="journey-lede">
+                {plan.due.length > plan.review.length
+                  ? `本輪先練最早到期的詞，還有 ${plan.due.length - plan.review.length} 個到期詞可稍後複習。`
+                  : "先複習到期詞，再認識新詞。"}
+              </p>
             </>
           ) : (
             <>
-              <p className="eyebrow eyebrow-light">今日已完成</p>
-              <h2>今天的星，都亮了。</h2>
-              <p className="journey-lede">記憶需要一點留白。想多走一段，也可以。</p>
+              <p className="eyebrow eyebrow-light">今日練習</p>
+              <h2>目前沒有待練的詞</h2>
+              <p className="journey-lede">稍後再查看到期詞，也可以加練一輪。</p>
             </>
           )}
-          {teaser.length > 0 && (
-            <div className="teaser" aria-label="今天將遇見的新詞">
-              {teaser.map((w, i) => (
-                <Illustration key={w.id} src={atlas.img(w, "thumb")} word={w.word} topic={w.topic} className={`teaser-${i}`} />
+          {!active && total > 0 && (
+            <div className="daily-duration" role="group" aria-label="預計練習時間">
+              {([5, 10] as const).map((duration) => (
+                <button key={duration} className="btn btn-glass" aria-pressed={minutes === duration} onClick={() => setMinutes(duration)}>
+                  約 {duration} 分鐘
+                </button>
               ))}
-              <span>今天會遇見它們</span>
             </div>
           )}
           <div className="journey-actions">
             {active || total > 0 ? (
               <button className="btn btn-primary btn-xl" onClick={() => start()}>
-                {active ? "繼續旅程" : "開始今天的旅程"} <ArrowRight size={20} />
+                {active ? "繼續今日練習" : "開始今日練習"} <ArrowRight size={20} />
               </button>
-            ) : (
-              <button className="btn btn-primary btn-xl" onClick={() => start({ extra: 5 })}>
-                再認識 5 個新詞 <Sparkles size={18} />
+            ) : unseen ? (
+              <button className="btn btn-primary btn-xl" onClick={() => start(3)}>
+                加練新詞 <Sparkles size={18} />
               </button>
-            )}
-            {!active && plan.due.length > 0 && plan.fresh.length > 0 && (
-              <button className="btn btn-glass" onClick={() => start({ reviewOnly: true })}>
-                只複習
-              </button>
-            )}
+            ) : null}
             {!active && total === 0 && (
               <button className="btn btn-glass" onClick={() => go({ page: "practice" })}>
                 <Keyboard size={18} /> 打字練習

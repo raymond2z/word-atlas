@@ -103,12 +103,41 @@ try {
   await page.getByText("4 詞", { exact: false }).first().waitFor();
   // Make a real first answer before checking FSRS persistence.
   await page.locator('.topnav a[href="#/"]').click();
-  await page.getByRole("button", { name: /開始今天的旅程/ }).click();
+  await page.getByRole("button", { name: "約 10 分鐘" }).click();
+  await page.getByRole("heading", { name: "複習 0 詞 · 新詞 4 詞" }).waitFor();
+  await page.getByRole("button", { name: "約 5 分鐘" }).click();
+  await page.getByRole("heading", { name: "複習 0 詞 · 新詞 3 詞" }).waitFor();
+  await page.getByRole("button", { name: "開始今日練習" }).click();
   await page.locator(".intro").waitFor();
-  for (let i = 0; i < 4; i++) {
+  await page.getByText("This is a versatile tool.", { exact: true }).waitFor();
+  for (let i = 0; i < 3; i++) {
     await page.getByRole("button", { name: /認識了/ }).click();
   }
-  await page.locator(".quiz .options button").first().click();
+  const readStep = async (index) => {
+    await page.waitForFunction((expected) => {
+      const catalog = JSON.parse(localStorage.getItem("my-word-atlas:catalog:v1"));
+      const saved = JSON.parse(localStorage.getItem("word-atlas:v2:my-word-atlas:deck:" + catalog.activeId));
+      return saved?.session?.index === expected;
+    }, index);
+    return page.evaluate(() => {
+    const catalog = JSON.parse(localStorage.getItem("my-word-atlas:catalog:v1"));
+    const saved = JSON.parse(localStorage.getItem("word-atlas:v2:my-word-atlas:deck:" + catalog.activeId));
+    const step = saved.session.steps[saved.session.index];
+    const word = catalog.decks.find((d) => d.id === catalog.activeId).words.find((w) => w.id === step.id);
+    return { id: step.id, word: word.word };
+    });
+  };
+  for (let i = 0; i < 3; i++) {
+    const { id } = await readStep(3 + i);
+    await page.locator(`[data-option="${id}"]`).click();
+    await page.getByRole("button", { name: "繼續", exact: true }).click();
+  }
+  await page.getByRole("button", { name: "提示第一個字母" }).click();
+  await page.getByRole("button", { name: "再給一點提示" }).click();
+  const firstSpelling = await readStep(6);
+  await page.getByLabel("輸入英文").fill(firstSpelling.word);
+  await page.getByRole("button", { name: "確認", exact: true }).click();
+  await page.getByText("用提示答對", { exact: true }).waitFor();
   await page.waitForFunction(() => {
     const k = Object.keys(localStorage).find((name) => name.startsWith("word-atlas:v2:my-word-atlas:deck:"));
     if (!k) return false;
@@ -116,6 +145,7 @@ try {
     return Object.keys(data.cards ?? {}).length === 1;
   });
   await page.reload();
+  await page.getByText("用提示答對", { exact: true }).waitFor();
   await page.waitForFunction(() => {
     const k = Object.keys(localStorage).find((name) => name.startsWith("word-atlas:v2:my-word-atlas:deck:"));
     return k && Object.keys(JSON.parse(localStorage.getItem(k)).cards ?? {}).length === 1;
@@ -136,7 +166,41 @@ try {
   assert.equal(saved.progress.session, null);
   assert.equal(saved.settings.accent, "uk");
   await page.getByText(/上次下載備份 (?!尚無紀錄)/).waitFor();
-  await page.getByRole("link", { name: "管理詞庫" }).click();
+  await page.goto(origin + "#/learn", { waitUntil: "domcontentloaded" });
+  const continueStudy = () => page.getByRole("button", { name: "繼續", exact: true }).click();
+  await continueStudy();
+  const missed = await readStep(7);
+  const typeAnswer = async (value) => {
+    await page.getByLabel("輸入英文").fill(value);
+    await page.getByRole("button", { name: "確認", exact: true }).click();
+  };
+  await typeAnswer(missed.word.slice(0, -1) + "!");
+  await page.locator(".spelling-correction mark").waitFor();
+  await continueStudy();
+  for (let i = 8; i <= 10; i++) {
+    const step = await readStep(i);
+    if (i === 9) assert.equal(step.id, firstSpelling.id);
+    if (i === 10) assert.equal(step.id, missed.id);
+    await typeAnswer(step.word);
+    await continueStudy();
+  }
+  await page.getByRole("heading", { name: "本輪練習完成" }).waitFor();
+  assert.deepEqual(await page.locator(".guided-results dd").allTextContents(), ["4 題", "1 題", "1 題"]);
+  const readCards = () => page.evaluate(() => {
+    const { activeId } = JSON.parse(localStorage.getItem("my-word-atlas:catalog:v1"));
+    return JSON.parse(localStorage.getItem("word-atlas:v2:my-word-atlas:deck:" + activeId)).cards;
+  });
+  const scheduled = await readCards();
+  assert.equal(Object.keys(scheduled).length, 3);
+  await page.getByRole("button", { name: "再練這些題" }).click();
+  await typeAnswer(firstSpelling.word);
+  await continueStudy();
+  await typeAnswer(missed.word);
+  await continueStudy();
+  await page.getByRole("heading", { name: "本輪練習完成" }).waitFor();
+  assert.deepEqual(await readCards(), scheduled);
+  await page.getByRole("button", { name: "完成本輪" }).click();
+  await page.goto(origin + "#/decks", { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "返回公開圖鑑" }).click();
   await page.locator(".today").waitFor();
   await page.locator('.topnav a[href="#/atlas"]').click();
@@ -214,7 +278,7 @@ try {
   await phone.getByRole("button", { name: "星圖視圖" }).click();
   await phone.getByRole("img", { name: /詞彙星圖：4 顆星，已點亮 1 顆/ }).waitFor();
   await phone.locator('.tabbar a[href="#/"]').click();
-  await phone.getByRole("button", { name: /開始今天的旅程/ }).click();
+  await phone.getByRole("button", { name: "開始今日練習" }).click();
   await phone.locator(".intro, .quiz").waitFor();
   assert.deepEqual(mobileErrors, []);
   assert.equal(await phone.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);

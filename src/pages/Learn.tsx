@@ -6,8 +6,8 @@ import { play, pronunciationError, stopAudio } from "../lib/audio";
 import { burst } from "../lib/burst";
 import { cue } from "../lib/sound";
 import { go } from "../lib/router";
-import { gap, normalize } from "../lib/text";
-import { answer, advance, buildSession, gradeFor, sessionStats } from "../store/session";
+import { gap, normalize, splitPair } from "../lib/text";
+import { answer, advance, buildGuidedSession, buildSession, gradeFor, guidedRecap, guidedStats, sessionStats, useTextQuestion } from "../store/session";
 import { Rating } from "../store/srs";
 import { store, useStore, type ActiveSession, type QuizKind, type Step } from "../store/store";
 import { EntryView, Highlight } from "../ui/EntryView";
@@ -26,7 +26,7 @@ export function Learn() {
   useEffect(() => {
     const { progress, settings } = store.get();
     if (!progress.session) {
-      const s = buildSession(atlas, progress, settings);
+      const s = buildGuidedSession(atlas, progress, settings, 5);
       if (!s.steps.length) {
         go({ page: "today" }, null, true);
         return;
@@ -78,8 +78,8 @@ function Runner({ session }: { session: ActiveSession }) {
         <AmbiencePicker />
       </header>
       <p className="learn-deck muted">{atlas.kind === "open" ? "Word Atlas 公開圖鑑" : atlas.name} · {atlas.count.toLocaleString()} 詞</p>
-      <main className="learn-stage" key={`${session.id}-${session.index}`}>
-        {step.kind === "intro" ? <Intro step={step} /> : <Quiz step={step as Step & { kind: QuizKind }} session={session} />}
+      <main className="learn-stage" key={`${session.id}-${session.index}-${step.kind}`}>
+        {step.kind === "intro" ? <Intro step={step} guided={session.guided} /> : <Quiz step={step} session={session} />}
       </main>
     </div>
   );
@@ -90,9 +90,9 @@ function useStepTimer() {
   return () => (performance.now() - t.current) / 1000;
 }
 
-function Intro({ step }: { step: Step }) {
+function Intro({ step, guided }: { step: Step; guided?: boolean }) {
   const atlas = useAtlas();
-  const { entry } = useEntry(step.id);
+  const { entry, error } = useEntry(step.id);
   const settings = useStore((s) => s.settings);
   const elapsed = useStepTimer();
   useEffect(() => {
@@ -103,14 +103,28 @@ function Intro({ step }: { step: Step }) {
     if (store.get().settings.sfx) void cue("flip");
     advance(elapsed());
   }, [elapsed]);
-  useKeys({ Enter: next, " ": next });
+  useKeys(entry ? { Enter: next, " ": next } : {});
+  if (error) return <EntryLoadError />;
   if (!entry) return <span className="spinner" />;
+  const example = entry.ex[0];
+  const phrase = splitPair(entry.col[0] ?? "");
   return (
     <div className="intro">
       <p className="stage-label">
-        <span className="dot dot-new" /> 初次見面
+        <span className="dot dot-new" /> {guided ? "認識新詞" : "初次見面"}
       </p>
-      <EntryView entry={entry} mode="intro" />
+      {guided ? (
+        <article className="guided-intro">
+          <h2 className="headword" lang="en">{entry.w}</h2>
+          <Speak url={atlas.audio(entry, settings.accent)} fallbackUrl={atlas.wordFallbackAudio?.(entry)} text={entry.w} accent={settings.accent} label="單字" />
+          <p className="guided-meaning"><span className="pos">{entry.senses[0].pos}</span> {entry.senses[0].zh}</p>
+          {example && <div className="guided-example">
+            <p lang="en"><Highlight text={example.en} word={entry.w} /></p>
+            {example.zh && <p className="muted">{example.zh}</p>}
+            {phrase.en && <p><small>常用搭配</small> <span lang="en">{phrase.en}</span> {phrase.zh}</p>}
+          </div>}
+        </article>
+      ) : <EntryView entry={entry} mode="intro" />}
       <footer className="learn-actions">
         <button className="btn btn-primary btn-xl" onClick={next} autoFocus>
           認識了 <ArrowRight size={20} />
@@ -130,15 +144,24 @@ const KIND_LABEL: Record<QuizKind, string> = {
   spell: "拼出這個詞",
 };
 
+function EntryLoadError() {
+  return <div role="alert">
+    <p>暫時無法載入詞條。重新載入後可繼續這一輪。</p>
+    <button className="btn btn-primary" onClick={() => window.location.reload()}>重新載入</button>
+  </div>;
+}
+
 function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: ActiveSession }) {
   const atlas = useAtlas();
   const ref = atlas.byId.get(step.id)!;
-  const { entry } = useEntry(step.id);
+  const { entry, error } = useEntry(step.id);
   const settings = useStore((s) => s.settings);
   const pending = session.pending;
   const elapsed = useStepTimer();
   const [hints, setHints] = useState(0);
   const [audioError, setAudioError] = useState(false);
+  const guided = session.guided;
+  const chineseOptions = step.kind === "meaning" || (guided && step.kind === "listen");
   const options = useMemo(() => (step.options ?? []).map((id) => atlas.byId.get(id)!).filter(Boolean), [atlas, step.options]);
 
   const submit = useCallback(
@@ -151,10 +174,10 @@ function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: Act
         if (r) burst(r.left + r.width / 2, r.top + r.height / 2);
       }
       if (settings.sfx) void cue(correct ? "correct" : "wrong");
-      answer(atlas, step, correct, gradeFor(step.kind, correct, ms, hints > 0), value);
-      if (entry) void play(atlas.audio(entry, settings.accent), entry.w, settings.accent, 1, atlas.wordFallbackAudio?.(entry));
+      answer(atlas, step, correct, gradeFor(step.kind, correct, ms, hints > 0), value, hints > 0);
+      if (entry && (!guided || settings.autoplay)) void play(atlas.audio(entry, settings.accent), entry.w, settings.accent, 1, atlas.wordFallbackAudio?.(entry));
     },
-    [pending, elapsed, settings, atlas, step, hints, entry],
+    [pending, elapsed, settings, atlas, step, hints, entry, guided],
   );
 
   const next = useCallback(() => {
@@ -180,8 +203,9 @@ function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: Act
   } else if (step.kind !== "spell") {
     options.forEach((o, i) => (keys[String(i + 1)] = () => submit(o.id, o.id === ref.id)));
   }
-  useKeys(keys);
+  useKeys(entry ? keys : {});
 
+  if (error) return <EntryLoadError />;
   if (!entry) return <span className="spinner" />;
   const sentence = entry.ex[0] ? gap(entry.ex[0].en, entry.w) : null;
 
@@ -189,8 +213,8 @@ function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: Act
     <div className={`quiz quiz-${step.kind} ${pending ? (pending.correct ? "is-right" : "is-wrong") : ""}`}>
       <p className="stage-label">
         <span className={`dot ${step.retry ? "dot-retry" : "dot-review"}`} />
-        {step.retry ? "再見一面 · " : ""}
-        {KIND_LABEL[step.kind]}
+        {step.retry ? (guided ? "再試一次 · " : "再見一面 · ") : ""}
+        {guided && step.kind === "listen" ? "聽發音，選出意思" : KIND_LABEL[step.kind]}
       </p>
 
       <section className="prompt">
@@ -229,15 +253,20 @@ function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: Act
               慢速再聽
             </button>
             {audioError && <p role="status" className="warn-text">{pronunciationError}</p>}
+            {guided && !pending && audioError && <button className="btn btn-ghost" onClick={() => useTextQuestion(atlas, step)}>改做文字題</button>}
           </div>
         )}
-        {step.kind === "spell" && <SpellPrompt entry={entry} refw={ref} hints={hints} />}
+        {step.kind === "spell" && (guided
+          ? <p className="spell-zh">{entry.senses[0].zh}</p>
+          : <SpellPrompt entry={entry} refw={ref} />)}
       </section>
 
-      {step.kind === "spell" ? (
+      {step.kind === "spell" && guided ? (
+        <GuidedSpelling entry={entry} pending={pending} hints={hints} onHint={() => setHints((level) => level + 1)} onSubmit={(v) => submit(v, normalize(v) === normalize(entry.w))} />
+      ) : step.kind === "spell" ? (
         <SpellInput entry={entry} pending={pending} hints={hints} onHint={() => setHints((h) => Math.min(entry.w.length - 1, h + 1))} onSubmit={(v) => submit(v, normalize(v) === normalize(entry.w))} />
       ) : (
-        <ul className={`options ${step.kind === "meaning" ? "options-zh" : "options-en"}`}>
+        <ul className={`options ${chineseOptions ? "options-zh" : "options-en"}`}>
           {options.map((o, i) => {
             const isAnswer = o.id === ref.id;
             const chosen = pending?.value === o.id;
@@ -246,7 +275,7 @@ function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: Act
               <li key={o.id}>
                 <button className={`option ${cls}`} data-option={o.id} onClick={() => submit(o.id, isAnswer)} disabled={!!pending}>
                   <kbd>{i + 1}</kbd>
-                  <span lang={step.kind === "meaning" ? "zh" : "en"}>{step.kind === "meaning" ? o.zh : o.word}</span>
+                  <span lang={chineseOptions ? "zh-Hant" : "en"}>{chineseOptions ? o.zh : o.word}</span>
                   {pending && isAnswer && <Check size={20} className="option-mark" />}
                   {pending && chosen && !isAnswer && <X size={20} className="option-mark" />}
                 </button>
@@ -256,16 +285,15 @@ function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: Act
         </ul>
       )}
 
-      {pending && <Feedback entry={entry} refw={ref} correct={pending.correct} onNext={next} />}
+      {pending && <Feedback entry={entry} refw={ref} correct={pending.correct} assisted={guided && pending.hinted} guided={guided} onNext={next} />}
     </div>
   );
 }
 
-function SpellPrompt({ entry, refw, hints }: { entry: Entry; refw: WordRef; hints: number }) {
+function SpellPrompt({ entry, refw }: { entry: Entry; refw: WordRef }) {
   const atlas = useAtlas();
   const accent = useStore((s) => s.settings.accent);
   const sentence = entry.ex[0] ? gap(entry.ex[0].en, entry.w) : null;
-  void hints;
   return (
     <div className="prompt-spell">
       <Illustration src={atlas.img(entry)} word={entry.w} topic={refw.topic} eager className="spell-art" />
@@ -283,6 +311,44 @@ function SpellPrompt({ entry, refw, hints }: { entry: Entry; refw: WordRef; hint
         <Speak url={atlas.audio(entry, accent)} fallbackUrl={atlas.wordFallbackAudio?.(entry)} text={entry.w} accent={accent} size="sm" label="聽發音" />
       </div>
     </div>
+  );
+}
+
+function GuidedSpelling({ entry, pending, hints, onHint, onSubmit }: {
+  entry: Entry; pending?: ActiveSession["pending"]; hints: number; onHint: () => void; onSubmit: (value: string) => void;
+}) {
+  const [value, setValue] = useState("");
+  const letters = Array.from(entry.w);
+  const longer = Math.min(letters.length - 1, Math.max(2, Math.ceil(letters.length / 3)));
+  const maxHints = longer > 1 ? 2 : letters.length > 1 ? 1 : 0;
+  if (pending) {
+    if (pending.correct || !pending.value) return null;
+    return <div className="spelling-correction">
+      <p>你的拼法 <span lang="en">{pending.value}</span></p>
+      <p>正確拼法 <b lang="en">{letters.map((letter, i) => (
+        normalize(pending.value[i] ?? "") === normalize(letter) ? letter : <mark key={i}>{letter}</mark>
+      ))}</b></p>
+    </div>;
+  }
+  return (
+    <form className="guided-spelling" onSubmit={(event) => {
+      event.preventDefault();
+      if (value.trim()) onSubmit(value);
+    }}>
+      <label htmlFor="guided-spelling">輸入英文</label>
+      <input id="guided-spelling" value={value} onChange={(event) => setValue(event.target.value)}
+        autoCapitalize="off" autoCorrect="off" autoComplete="off" spellCheck={false} enterKeyHint="done" maxLength={220} />
+      {hints > 0 && <p className="guided-prefix" role="status">
+        {hints === 1 ? "第一個字母" : "開首幾個字母"} <b lang="en">{letters.slice(0, hints === 1 ? 1 : longer).join("")}</b>
+      </p>}
+      <div className="spell-actions">
+        {hints < maxHints && <button type="button" className="btn btn-ghost" onClick={onHint}>
+          <Lightbulb size={17} /> {hints ? "再給一點提示" : "提示第一個字母"}
+        </button>}
+        <button type="button" className="btn btn-ghost" onClick={() => onSubmit("")}>想不起來</button>
+        <button type="submit" className="btn btn-primary" disabled={!value.trim()}>確認</button>
+      </div>
+    </form>
   );
 }
 
@@ -343,8 +409,11 @@ function SpellInput({ entry, pending, hints, onHint, onSubmit }: { entry: Entry;
   );
 }
 
-function Feedback({ entry, refw, correct, onNext }: { entry: Entry; refw: WordRef; correct: boolean; onNext: () => void }) {
+function Feedback({ entry, refw, correct, assisted, guided, onNext }: {
+  entry: Entry; refw: WordRef; correct: boolean; assisted?: boolean; guided?: boolean; onNext: () => void;
+}) {
   const atlas = useAtlas();
+  const accent = useStore((s) => s.settings.accent);
   const btn = useRef<HTMLButtonElement>(null);
   useEffect(() => btn.current?.focus({ preventScroll: true }), []);
   return (
@@ -352,10 +421,11 @@ function Feedback({ entry, refw, correct, onNext }: { entry: Entry; refw: WordRe
       <div className="feedback-inner">
         <Illustration src={atlas.img(entry, "thumb")} word={entry.w} topic={refw.topic} className="feedback-art" />
         <div className="feedback-text">
-          <p className="feedback-verdict">{correct ? "答對了" : "沒關係，記住它"}</p>
+          <p className="feedback-verdict">{correct ? (assisted ? "用提示答對" : "答對了") : "看看答案，稍後再試"}</p>
           <p className="feedback-word">
             <b lang="en">{entry.w}</b>
             <span className="ipa">{entry.uk || entry.us}</span>
+            {guided && <Speak url={atlas.audio(entry, accent)} fallbackUrl={atlas.wordFallbackAudio?.(entry)} text={entry.w} accent={accent} size="sm" />}
           </p>
           <p className="feedback-zh">
             {entry.senses
@@ -385,6 +455,7 @@ function Summary({ session }: { session: ActiveSession }) {
   const stats = sessionStats(session);
   const words = [...new Set(session.steps.map((s) => s.id))].map((id) => atlas.byId.get(id)!).filter(Boolean);
   const wrong = words.filter((w) => session.graded[w.id] === Rating.Again);
+  const { independent, assisted, missed } = guidedStats(session);
   const minutes = Math.max(1, Math.round(((session.finished ?? Date.now()) - session.started) / 60000));
   const done = () => {
     store.progress((p) => ({ ...p, session: null }));
@@ -394,6 +465,39 @@ function Summary({ session }: { session: ActiveSession }) {
     const { progress, settings } = store.get();
     store.progress((p) => ({ ...p, session: buildSession(atlas, progress, settings, { ids: wrong.map((w) => w.id) }) }));
   };
+  if (session.guided) return (
+    <div className="learn summary">
+      <div className="summary-card">
+        <h1 className="display">本輪練習完成</h1>
+        <dl className="guided-results">
+          <div><dt>獨立答對</dt><dd>{independent} 題</dd></div>
+          <div><dt>用提示答對</dt><dd>{assisted} 題</dd></div>
+          <div><dt>首次未答對</dt><dd>{missed} 題</dd></div>
+        </dl>
+        {assisted + missed > 0 && <>
+          <h2 className="eyebrow">可再練的詞</h2>
+          <ul className="guided-recap-words">
+            {words.map((word) => {
+              const skills = (["meaning", "listen", "spell"] as const)
+                .filter((kind) => {
+                  const result = session.outcomes?.[word.id]?.[kind];
+                  return result && result !== "independent";
+                }).map((kind) => ({ meaning: "詞義", listen: "聽辨", spell: "拼寫" })[kind]);
+              return skills.length > 0 && <li key={word.id}><b lang="en">{word.word}</b> <span>{skills.join("、")}</span></li>;
+            })}
+          </ul>
+        </>}
+        <div className="summary-actions">
+          {assisted + missed > 0 && <button className="btn btn-ghost" onClick={() => {
+            const recap = guidedRecap(atlas, session);
+            if (recap.steps.length) store.progress((p) => ({ ...p, session: recap }));
+          }}><RotateCcw size={18} /> 再練這些題</button>}
+          <button className="btn btn-ghost" onClick={() => shareSession(atlas, session)}><Share2 size={18} /> 分享成績卡</button>
+          <button className="btn btn-primary btn-xl" onClick={done}>完成本輪 <ArrowRight size={20} /></button>
+        </div>
+      </div>
+    </div>
+  );
   return (
     <div className="learn summary">
       <div className="summary-card">

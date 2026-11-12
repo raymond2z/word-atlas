@@ -3,7 +3,9 @@ import type { Accent } from "../atlas/types";
 import type { CardState, Grade } from "./srs";
 
 export type QuizKind = "meaning" | "picture" | "listen" | "spell";
-export type Step = { id: string; kind: "intro" } | { id: string; kind: QuizKind; retry?: boolean; options?: string[] };
+export type Step = { id: string; kind: "intro" } | { id: string; kind: QuizKind; retry?: boolean; warmup?: boolean; options?: string[] };
+
+export type AnswerOutcome = "independent" | "assisted" | "missed";
 
 export interface ActiveSession {
   id: string;
@@ -14,8 +16,11 @@ export interface ActiveSession {
   graded: Record<string, Grade>;
   newIds: string[];
   reviewIds: string[];
+  guided?: boolean;
+  practiceOnly?: boolean;
+  outcomes?: Record<string, Partial<Record<QuizKind, AnswerOutcome>>>;
   /** Answer shown but not yet continued; survives reload without double counting. */
-  pending?: { correct: boolean; value: string };
+  pending?: { correct: boolean; value: string; hinted?: boolean };
   finished?: number;
 }
 
