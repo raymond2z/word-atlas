@@ -10,6 +10,31 @@ test("saved translations handle an auto-detected English row targeting Cantonese
   assert.equal(result.skipped, 0);
 });
 
+test("restores source context and individual schedules with remapped word IDs", () => {
+  const card = review(undefined, Rating.Good, Date.parse("2025-01-01"));
+  const context = {
+    sentence: "We need a versatile tool.",
+    url: "https://example.com/lesson",
+    note: "STEM notes",
+  };
+  const plan = parsePersonalBackup({
+    format: "my-word-atlas-personal-backup",
+    version: 2,
+    deck: { id: "test-deck", name: "Sample", words: [{ id: "old-id", word: "versatile", zh: "用途廣泛", context }] },
+    progress: {
+      version: 2, datasetId: "my-word-atlas:deck:test-deck", cards: { "old-id": card },
+      skills: { "old-id": { meaning: { card, outcome: "independent" } }, "deleted-id": { listen: { card, outcome: "missed" } } },
+    },
+  });
+  assert.ok(plan);
+  const [{ deck, progress }] = plan.decks;
+  const [word] = deck.words;
+  assert.deepEqual(word.context, context);
+  assert.deepEqual(progress.skills, { [word.id]: { meaning: { card, outcome: "independent" } } });
+  assert.deepEqual(progress.cards, { [word.id]: card });
+  assert.equal(importVocabulary(JSON.stringify([{ ...word, context: { url: "javascript:void(0)" } }])).words[0].context, undefined);
+});
+
 test("V1.4.1 migration replays timestamped ratings into independent FSRS cards", () => {
   const first = "2025-02-05T10:00:00.000Z";
   const second = "2025-02-07T10:00:00.000Z";

@@ -1,5 +1,5 @@
 import type { Atlas } from "../atlas/types";
-import { sessionStats } from "../store/session";
+import { guidedStats, sessionStats } from "../store/session";
 import { Rating } from "../store/srs";
 import type { ActiveSession } from "../store/store";
 import { toast } from "./Toast";
@@ -62,11 +62,13 @@ export async function shareSession(atlas: Atlas, s: ActiveSession) {
     ctx.fillText(`${d.getMonth() + 1}月${d.getDate()}日 · 今天點亮了 ${ids.length} 顆星`, pad, top - 24);
     ctx.fillStyle = "#1E2640";
     ctx.font = `600 64px ${SERIF}`;
-    ctx.fillText(`學了 ${ids.length} 個詞，首次正確 ${st.accuracy}%`, pad, top + 52, W - pad * 2);
+    const counts = guidedStats(s);
+    const wordCount = new Set(s.steps.map((step) => step.id)).size;
+    ctx.fillText(s.guided ? `練習 ${wordCount} 詞 · 獨立答對 ${counts.independent} 題` : `學了 ${ids.length} 個詞，首次正確 ${st.accuracy}%`, pad, top + 52, W - pad * 2);
     const wrong = Object.values(s.graded).filter((g) => g === Rating.Again).length;
     ctx.font = `400 30px ${SANS}`;
     ctx.fillStyle = "#5A6075";
-    ctx.fillText(`新詞 ${s.newIds.length} · 複習 ${s.reviewIds.length} · 需要再見面 ${wrong}`, pad, top + 112);
+    ctx.fillText(s.guided ? `用提示答對 ${counts.assisted} 題 · 首次未答對 ${counts.missed} 題` : `新詞 ${s.newIds.length} · 複習 ${s.reviewIds.length} · 需要再見面 ${wrong}`, pad, top + 112);
     ctx.fillStyle = "rgba(30,38,64,.14)";
     ctx.fillRect(pad, H - 116, W - pad * 2, 2);
     ctx.fillStyle = "#1E2640";

@@ -2,7 +2,8 @@ import { Download, RotateCcw } from "lucide-react";
 import { useMemo } from "react";
 import { useAtlas } from "../atlas/context";
 import { isMastered } from "../store/srs";
-import { dayKey, resetProgress, store, useStore, type Settings } from "../store/store";
+import { nextSkillReview, SKILL_LABELS } from "../store/session";
+import { dayKey, resetProgress, REVIEW_SKILLS, store, useStore, type Settings } from "../store/store";
 import { toast } from "../ui/Toast";
 import { streakOf } from "./Today";
 
@@ -18,18 +19,25 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
     const r = days.reduce((n, d) => n + d.r, 0);
     const c = days.reduce((n, d) => n + d.c, 0);
     const t = days.reduce((n, d) => n + d.t, 0);
-    const now = Date.now();
+    const nextDates = Object.keys(progress.cards)
+      .filter((id) => atlas.byId.has(id))
+      .map((id) => nextSkillReview(progress, id, settings.spell)!.due);
+    const skills = REVIEW_SKILLS.map((kind) => {
+      const entries = Object.entries(progress.skills).flatMap(([id, results]) =>
+        atlas.byId.has(id) && results[kind] ? [results[kind]] : []);
+      const independent = entries.filter((skill) => skill.outcome === "independent").length;
+      return { kind, independent, total: entries.length };
+    });
     const forecast = Array.from({ length: 7 }, (_, i) => {
       const end = new Date();
       end.setHours(23, 59, 59, 999);
       end.setDate(end.getDate() + i);
       const start = new Date(end);
       start.setHours(0, 0, 0, 0);
-      return cards.filter((x) => (i === 0 ? x.due <= end.getTime() : x.due >= start.getTime() && x.due <= end.getTime())).length;
+      return nextDates.filter((due) => (i === 0 ? due <= end.getTime() : due >= start.getTime() && due <= end.getTime())).length;
     });
-    void now;
-    return { learned: cards.length, mastered: cards.filter(isMastered).length, reviews: r, accuracy: r ? Math.round((c / r) * 100) : 0, minutes: Math.round(t / 60), forecast };
-  }, [progress]);
+    return { learned: cards.length, mastered: cards.filter(isMastered).length, reviews: r, accuracy: r ? Math.round((c / r) * 100) : 0, minutes: Math.round(t / 60), forecast, skills };
+  }, [progress, atlas, settings.spell]);
 
   const set = (patch: Partial<Settings>) => store.settings(patch);
   const maxF = Math.max(1, ...stats.forecast);
@@ -75,6 +83,18 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
 
       <div className="me-grid">
         <section className="panel">
+          <h3 className="eyebrow">分項學習紀錄</h3>
+          <dl className="skill-history">
+            {stats.skills.map(({ kind, independent, total }) => (
+              <div key={kind}>
+                <dt>{SKILL_LABELS[kind]}</dt>
+                <dd>{total ? `${independent}／${total} 詞` : "尚未練習"}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="muted">顯示上次獨立答對的詞數及該項已練習的詞數。</p>
+        </section>
+        <section className="panel">
           <h3 className="eyebrow">過去 20 周</h3>
           <Heatmap days={progress.days} />
           <p className="muted">一格是一天，顏色越深，那天答得越多。「長期記住」指記憶穩定度超過 21 天。</p>
@@ -95,7 +115,7 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
 
         <section className="panel settings">
           <h3 className="eyebrow">學習設置</h3>
-          <Field label="每日新詞" hint="複習不設上限，算法只安排快要遺忘的詞。">
+          <Field label="每日新詞" hint="每輪先安排到期複習，再按練習時間加入新詞。">
             <div className="segmented">
               {[5, 10, 15, 20, 30].map((n) => (
                 <button key={n} className={settings.dailyNew === n ? "is-on" : ""} onClick={() => set({ dailyNew: n })}>

@@ -1,6 +1,6 @@
 import { Download, FileUp, Plus, Trash2, BookOpen } from "lucide-react";
-import { useRef, useState, useSyncExternalStore } from "react";
-import { customCatalog, importVocabulary, type PersonalWord } from "../custom/catalog";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { contextURL, customCatalog, importVocabulary, type PersonalWord } from "../custom/catalog";
 import { useAtlas } from "../atlas/context";
 import { go, href } from "../lib/router";
 import { store, useStore } from "../store/store";
@@ -8,10 +8,12 @@ import { store, useStore } from "../store/store";
 type Draft = {
   word: string; zh: string; pos: string; cefr: string; topic: string;
   example: string; exampleZh: string; imageUrl: string; audioUkUrl: string; audioUsUrl: string;
+  sourceSentence: string; sourceUrl: string; personalNote: string;
 };
 const emptyDraft = (): Draft => ({
   word: "", zh: "", pos: "", cefr: "B1", topic: "custom",
   example: "", exampleZh: "", imageUrl: "", audioUkUrl: "", audioUsUrl: "",
+  sourceSentence: "", sourceUrl: "", personalNote: "",
 });
 function saveText(name: string, contents: string, mime: string) {
   const url = URL.createObjectURL(new Blob([contents], { type: mime }));
@@ -34,8 +36,12 @@ export function MyDecks() {
   const [query, setQuery] = useState("");
   const [limit, setLimit] = useState(60);
   const input = useRef<HTMLInputElement>(null);
+  const editor = useRef<HTMLElement>(null);
   const activeSession = useStore((s) => s.progress.session);
   const busy = catalog.activeId === deck?.id && !!activeSession && !activeSession.finished;
+  useEffect(() => {
+    if (editing) editor.current?.focus();
+  }, [editing]);
 
   const safe = (fn: () => void) => {
     try { setProblem(""); fn(); }
@@ -70,13 +76,22 @@ export function MyDecks() {
     setDraft(w ? {
       word: w.word, zh: w.zh, pos: w.pos, cefr: w.cefr, topic: w.topic,
       example: w.example, exampleZh: w.exampleZh,
+      sourceSentence: w.context?.sentence ?? "", sourceUrl: w.context?.url ?? "", personalNote: w.context?.note ?? "",
       imageUrl: w.imageUrl ?? "", audioUkUrl: w.audioUkUrl ?? "", audioUsUrl: w.audioUsUrl ?? "",
     } : emptyDraft());
   };
   const update = (field: keyof Draft, value: string) => setDraft((v) => ({ ...v, [field]: value }));
   const saveWord = () => safe(() => {
     if (!deck) return;
-    customCatalog.put(deck.id, { ...deck.words.find((word) => word.id === editing), ...draft });
+    const { sourceSentence, sourceUrl, personalNote, ...fields } = draft;
+    if (sourceUrl.trim() && !contextURL(sourceUrl)) {
+      editor.current?.querySelector<HTMLInputElement>("#word-source-url")?.focus();
+      throw new Error("請輸入有效的來源網址（http:// 或 https://）。");
+    }
+    customCatalog.put(deck.id, {
+      ...deck.words.find((word) => word.id === editing), ...fields,
+      context: { sentence: sourceSentence, url: sourceUrl, note: personalNote },
+    });
     setEditing(null);
     setMessage("單字已儲存。");
   });
@@ -86,7 +101,7 @@ export function MyDecks() {
     if (editing === w.id) setEditing(null);
   });
   const filtered = deck?.words.filter((w) =>
-    (w.word + " " + w.zh + " " + w.topic).toLowerCase().includes(query.toLowerCase().trim())) ?? [];
+    [w.word, w.zh, w.topic, w.context?.sentence, w.context?.note].join(" ").toLowerCase().includes(query.toLowerCase().trim())) ?? [];
 
   return <div className="page my-decks">
     <header className="page-head">
@@ -125,7 +140,7 @@ export function MyDecks() {
     </section>
 
     {message && <p role="status" className="panel" style={{ borderColor: "#71a78b" }}>{message}</p>}
-    {problem && <p role="alert" className="panel warn-text">{problem}</p>}
+    {problem && !editing && <p role="alert" className="panel warn-text">{problem}</p>}
     {deck && <section className="panel" style={{ marginBottom: 20 }}>
       <h2>編輯：{deck.name}</h2>
       {busy && <p className="warn-text">這個詞庫有未完成的學習流程。請先完成或暫停學習，再刪除或匯入內容。</p>}
@@ -147,7 +162,7 @@ export function MyDecks() {
       </div>
       <p className="muted">支援 Google 翻譯 CSV、含 word/zh 欄位的 CSV 和 Word Atlas JSON。已有的英文詞條會跳過。</p>
       <label className="my-deck-search">搜尋詞條
-        <input value={query} onChange={(e) => { setQuery(e.target.value); setLimit(60); }} placeholder="英文、中文或主題"/>
+        <input value={query} onChange={(e) => { setQuery(e.target.value); setLimit(60); }} placeholder="英文、中文、主題、原句或筆記"/>
       </label>
       <div className="my-deck-words">
         {filtered.slice(0, limit).map((w) => <div key={w.id} className="my-deck-word">
@@ -163,7 +178,7 @@ export function MyDecks() {
       </div>
     </section>}
 
-    {editing && deck && <section className="panel my-deck-editor" style={{ marginBottom: 20 }}>
+    {editing && deck && <section ref={editor} tabIndex={-1} aria-label="單字編輯" className="panel my-deck-editor" style={{ marginBottom: 20 }}>
       <h2>{editing === "new" ? "新增單字" : "編輯單字"}</h2>
       <p className="muted">詞性和例句是選填的，沒有錄音檔也能使用瀏覽器英文語音。</p>
       <div className="my-deck-fields">
@@ -180,6 +195,15 @@ export function MyDecks() {
         <label>英式錄音網址（HTTPS）<input value={draft.audioUkUrl} onChange={(e) => update("audioUkUrl", e.target.value)} /></label>
         <label>美式錄音網址（HTTPS）<input value={draft.audioUsUrl} onChange={(e) => update("audioUsUrl", e.target.value)} /></label>
       </div>
+      <fieldset className="my-deck-context">
+        <legend>遇到單字的情境</legend>
+        <div className="my-deck-fields">
+          <label>來源原句<textarea value={draft.sourceSentence} maxLength={1000} rows={3} onChange={(e) => update("sourceSentence", e.target.value)} placeholder="貼上當時看到或聽到的句子" /></label>
+          <label>個人筆記<textarea value={draft.personalNote} maxLength={1000} rows={3} onChange={(e) => update("personalNote", e.target.value)} placeholder="例如 IELTS 聽力、街舞影片或 STEM 教學" /></label>
+          <label>來源連結<input id="word-source-url" type="url" value={draft.sourceUrl} maxLength={2000} onChange={(e) => update("sourceUrl", e.target.value)} placeholder="https://…" /></label>
+        </div>
+      </fieldset>
+      {problem && <p className="warn-text" role="alert">{problem}</p>}
       <div className="my-deck-row">
         <button className="btn btn-primary" onClick={saveWord}>儲存單字</button>
         <button className="btn btn-ghost" onClick={() => setEditing(null)}>取消</button>

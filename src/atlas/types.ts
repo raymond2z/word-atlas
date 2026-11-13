@@ -14,6 +14,12 @@ export interface Example {
   zh: string;
 }
 
+export interface WordContext {
+  sentence?: string;
+  url?: string;
+  note?: string;
+}
+
 export interface Entry {
   id: string;
   w: string;
@@ -21,6 +27,7 @@ export interface Entry {
   us: string;
   senses: Sense[];
   ex: Example[];
+  context?: WordContext;
   col: string[];
   fam: string[];
   syn: string[];

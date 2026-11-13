@@ -3,7 +3,8 @@ import type { Entry, WordRef } from "../atlas/types";
 import { useAtlas } from "../atlas/context";
 import { splitHighlight, splitPair } from "../lib/text";
 import { formatInterval, isMastered } from "../store/srs";
-import { toggleBookmark, useStore } from "../store/store";
+import { SKILL_LABELS } from "../store/session";
+import { REVIEW_SKILLS, toggleBookmark, useStore } from "../store/store";
 import { Illustration } from "./Illustration";
 import { Speak } from "./Speak";
 import { shareWord } from "./share";
@@ -18,6 +19,51 @@ export function Highlight({ text, word }: { text: string; word: string }) {
       <mark>{parts[1]}</mark>
       {parts[2]}
     </>
+  );
+}
+
+export function SourceContext({ entry }: { entry: Entry }) {
+  const accent = useStore((s) => s.settings.accent);
+  const context = entry.context;
+  if (!context) return null;
+  return (
+    <section className="source-context">
+      <h3 className="eyebrow">遇到單字的情境</h3>
+      {context.sentence && (
+        <p lang="en">
+          <Highlight text={context.sentence} word={entry.w} />{" "}
+          <Speak url={null} text={context.sentence} accent={accent} size="sm" label="原句" />
+        </p>
+      )}
+      {context.note && <p className="muted">{context.note}</p>}
+      {context.url && <a className="link" href={context.url} target="_blank" rel="noreferrer">開啟來源 ↗</a>}
+    </section>
+  );
+}
+
+function SkillHistory({ id }: { id: string }) {
+  const skills = useStore((s) => s.progress.skills[id]);
+  const spell = useStore((s) => s.settings.spell);
+  const now = Date.now();
+  return (
+    <section className="block">
+      <h3 className="eyebrow">分項複習紀錄</h3>
+      <dl className="skill-history">
+        {REVIEW_SKILLS.map((kind) => {
+          const skill = skills?.[kind];
+          const outcome = skill && { independent: "獨立答對", assisted: "用提示答對", missed: "未答對" }[skill.outcome];
+          const next = kind === "spell" && !spell ? "已關閉拼寫" : skill
+            ? skill.card.due <= now ? "可以複習" : `約 ${formatInterval(skill.card.due - now)}後複習`
+            : "尚未練習";
+          return (
+            <div key={kind}>
+              <dt>{SKILL_LABELS[kind]}</dt>
+              <dd>{outcome && <span>上次{outcome}</span>}<span className="muted">{next}</span></dd>
+            </div>
+          );
+        })}
+      </dl>
+    </section>
   );
 }
 
@@ -119,6 +165,8 @@ export function EntryView({ entry, mode = "detail", eager = true }: { entry: Ent
           ))}
         </ol>
 
+        <SourceContext entry={entry} />
+
         {entry.ex.length > 0 && (
           <section className="block">
             <h3 className="eyebrow">例句</h3>
@@ -196,9 +244,10 @@ export function EntryView({ entry, mode = "detail", eager = true }: { entry: Ent
 
         {entry.note && <p className="usage-note">用法提醒：{entry.note}</p>}
 
+        {mode === "detail" && <SkillHistory id={entry.id} />}
         {mode === "detail" && card && (
           <p className="memory-note">
-            {card.due <= Date.now() ? "現在可以複習" : `下次複習 ${formatInterval(card.due - Date.now())}後`} · 記憶穩定度 {card.s < 1 ? "<1" : Math.round(card.s)} 天 · 已複習 {card.reps} 次
+            單字總紀錄 · 記憶穩定度 {card.s < 1 ? "<1" : Math.round(card.s)} 天 · 已練習 {card.reps} 次
           </p>
         )}
       </div>
