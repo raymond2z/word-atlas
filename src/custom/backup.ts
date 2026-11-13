@@ -49,6 +49,10 @@ export function parsePersonalBackup(data: unknown): RestorePlan | null {
       const mapped = idMap.get(id);
       return mapped ? [[mapped, card] as const] : [];
     });
+    progress.skills = Object.fromEntries(Object.entries(progress.skills).flatMap(([id, skills]) => {
+      const mapped = idMap.get(id);
+      return mapped ? [[mapped, skills] as const] : [];
+    }));
     const mapIds = (ids: string[]) => [...new Set(ids.flatMap((id) => idMap.get(id) ?? []))];
     progress.cards = Object.fromEntries(cards);
     progress.bookmarks = mapIds(progress.bookmarks);

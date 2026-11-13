@@ -38,9 +38,14 @@ export function Today() {
   const progress = useStore((s) => s.progress);
   const settings = useStore((s) => s.settings);
   const [minutes, setMinutes] = useState<5 | 10>(5);
-  const plan = useMemo(() => guidedPlan(atlas, progress, settings, minutes), [atlas, progress, settings, minutes]);
+  const [clock, setClock] = useState(Date.now);
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const plan = useMemo(() => guidedPlan(atlas, progress, settings, minutes, undefined, clock), [atlas, progress, settings, minutes, clock]);
   // Warm the first cards of today's journey so the session opens instantly.
-  const firstIds = [...plan.review.slice(0, 4), ...plan.fresh].join(",");
+  const firstIds = [...plan.review.slice(0, 4).map(({ id }) => id), ...plan.fresh].join(",");
   useEffect(() => {
     const ids = firstIds.split(",").filter(Boolean);
     const t = window.setTimeout(() => void prefetch(atlas, ids), 800);

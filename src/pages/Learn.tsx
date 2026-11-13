@@ -10,7 +10,7 @@ import { gap, normalize, splitPair } from "../lib/text";
 import { answer, advance, buildGuidedSession, buildSession, gradeFor, guidedRecap, guidedStats, sessionStats, useTextQuestion } from "../store/session";
 import { Rating } from "../store/srs";
 import { store, useStore, type ActiveSession, type QuizKind, type Step } from "../store/store";
-import { EntryView, Highlight } from "../ui/EntryView";
+import { EntryView, Highlight, SourceContext } from "../ui/EntryView";
 import { Illustration } from "../ui/Illustration";
 import { Galaxy } from "../galaxy/Galaxy";
 import { AmbiencePicker } from "../ui/Ambience";
@@ -118,6 +118,7 @@ function Intro({ step, guided }: { step: Step; guided?: boolean }) {
           <h2 className="headword" lang="en">{entry.w}</h2>
           <Speak url={atlas.audio(entry, settings.accent)} fallbackUrl={atlas.wordFallbackAudio?.(entry)} text={entry.w} accent={settings.accent} label="單字" />
           <p className="guided-meaning"><span className="pos">{entry.senses[0].pos}</span> {entry.senses[0].zh}</p>
+          <SourceContext entry={entry} />
           {example && <div className="guided-example">
             <p lang="en"><Highlight text={example.en} word={entry.w} /></p>
             {example.zh && <p className="muted">{example.zh}</p>}
@@ -285,7 +286,10 @@ function Quiz({ step, session }: { step: Step & { kind: QuizKind }; session: Act
         </ul>
       )}
 
-      {pending && <Feedback entry={entry} refw={ref} correct={pending.correct} assisted={guided && pending.hinted} guided={guided} onNext={next} />}
+      {pending && <>
+        {guided && <SourceContext entry={entry} />}
+        <Feedback entry={entry} refw={ref} correct={pending.correct} assisted={guided && pending.hinted} guided={guided} onNext={next} />
+      </>}
     </div>
   );
 }

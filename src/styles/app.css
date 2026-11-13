@@ -4229,6 +4229,54 @@ a:hover .mark-needle,
 .my-deck-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 0.9rem; }
 .my-deck-fields label { display: grid; gap: 0.3rem; font-weight: 600; font-size: 0.92rem; }
 .my-deck-fields label input, .my-deck-fields label select { width: 100%; }
+.my-deck-context {
+  min-width: 0;
+  margin: 1.2rem 0;
+  padding: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.my-deck-context legend { padding: 0 0.4rem; font-weight: 600; }
+.my-deck-context textarea {
+  width: 100%;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface, #fff);
+  color: inherit;
+  resize: vertical;
+}
+.source-context {
+  margin: 1rem 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+.source-context p {
+  margin: 0.4rem 0;
+  white-space: pre-wrap;
+}
+.skill-history {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0.75rem 0 0;
+}
+.skill-history > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid var(--line);
+}
+.skill-history dd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  margin: 0;
+}
 @media(max-width:650px) { .my-deck-word { align-items: flex-start; flex-direction: column; } }
 
 .active-deck {

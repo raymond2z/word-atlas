@@ -1,4 +1,4 @@
-import type { Atlas, Entry, WordRef } from "../atlas/types";
+import type { Atlas, Entry, WordContext, WordRef } from "../atlas/types";
 import { MEDIA } from "../atlas/types";
 
 export interface PersonalWord {
@@ -11,6 +11,7 @@ export interface PersonalWord {
   example: string;
   exampleZh: string;
   collocations: string[];
+  context?: WordContext;
   definition?: string;
   uk?: string;
   us?: string;
@@ -58,6 +59,14 @@ const mediaURL = (value: unknown): string => {
   catch { return ""; }
 };
 const cutoff = (s: string, n: number) => s.slice(0, n);
+export function contextURL(value: unknown) {
+  const raw = text(value);
+  if (!raw || raw.length > 2000) return "";
+  try {
+    const url = new URL(raw);
+    return ["https:", "http:"].includes(url.protocol) && !url.username && !url.password ? url.href : "";
+  } catch { return ""; }
+}
 const validLevel = (s: string) => LEVELS.includes(s.toUpperCase() as typeof LEVELS[number]) ? s.toUpperCase() : "B1";
 
 function makeId(word: string): string {
@@ -81,6 +90,10 @@ export function parseWord(value: unknown): PersonalWord | null {
   const collocations = Array.isArray(value.collocations) ? value.collocations :
     Array.isArray(value.col) ? value.col : text(value.collocations).split(/[;；]/);
   const atlasId = text(value.atlasId || (value.atlasMedia && value.id));
+  const input = object(value.context) ? value.context : {};
+  const sentence = cutoff(text(input.sentence), 1000);
+  const url = contextURL(input.url);
+  const note = cutoff(text(input.note), 1000);
   return {
     id: makeId(word),
     word,
@@ -90,6 +103,7 @@ export function parseWord(value: unknown): PersonalWord | null {
     topic: cutoff(text(value.topic) || "custom", 40),
     example: cutoff(text(value.example || example.en), 500),
     exampleZh: cutoff(text(value.exampleZh || example.zh), 500),
+    ...(sentence || url || note ? { context: { sentence: sentence || undefined, url: url || undefined, note: note || undefined } } : {}),
     collocations: collocations.map(text).filter(Boolean).slice(0, 12),
     definition: cutoff(text(value.definition || sense.en), 500),
     uk: cutoff(text(value.uk), 80),
@@ -155,6 +169,11 @@ function csvWords(rows: string[][]): unknown[] {
       topic: col(r, ["topic", "category", "主題", "主题", "分類", "分类"]),
       example: col(r, ["example", "sentence", "例句"]),
       exampleZh: col(r, ["examplezh", "example_zh", "例句中文"]),
+      context: {
+        sentence: col(r, ["source_sentence", "來源原句", "原句"]),
+        url: col(r, ["source_url", "來源連結"]),
+        note: col(r, ["personal_note", "個人筆記"]),
+      },
       definition: col(r, ["definition", "英文釋義"]),
       collocations: col(r, ["collocations", "col", "搭配"]),
       imageUrl: col(r, ["imageurl", "image_url"]),
@@ -225,6 +244,7 @@ export function makeCustomAtlas(deck: PersonalDeck, open: Atlas | null = null): 
       id: w.id, w: w.word, uk: w.uk || "", us: w.us || "",
       senses: [{ pos: w.pos, zh: w.zh, en: w.definition || "" }],
       ex: w.example ? [{ en: w.example, zh: w.exampleZh }] : [],
+      context: w.context,
       col: w.collocations, fam: [], syn: [], ant: [], tip: "",
       cefr: w.cefr, topic: w.topic, m: media,
       media: { img, uk, us },

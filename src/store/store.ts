@@ -2,10 +2,17 @@ import { useSyncExternalStore } from "react";
 import type { Accent } from "../atlas/types";
 import type { CardState, Grade } from "./srs";
 
-export type QuizKind = "meaning" | "picture" | "listen" | "spell";
+export const REVIEW_SKILLS = ["meaning", "listen", "spell"] as const;
+export type ReviewSkill = (typeof REVIEW_SKILLS)[number];
+export type QuizKind = ReviewSkill | "picture";
 export type Step = { id: string; kind: "intro" } | { id: string; kind: QuizKind; retry?: boolean; warmup?: boolean; options?: string[] };
 
 export type AnswerOutcome = "independent" | "assisted" | "missed";
+
+export interface SkillProgress {
+  card: CardState;
+  outcome: AnswerOutcome;
+}
 
 export interface ActiveSession {
   id: string;
@@ -43,6 +50,7 @@ export interface Progress {
   version: 2;
   datasetId: string;
   cards: Record<string, CardState>;
+  skills: Record<string, Partial<Record<ReviewSkill, SkillProgress>>>;
   bookmarks: string[];
   days: Record<string, DayStat>;
   typing: TypingRound[];
@@ -87,6 +95,7 @@ export const emptyProgress = (datasetId: string): Progress => ({
   version: 2,
   datasetId,
   cards: {},
+  skills: {},
   bookmarks: [],
   days: {},
   typing: [],
@@ -143,6 +152,21 @@ export function sanitizeProgress(v: unknown, datasetId: string): Progress {
   const out = emptyProgress(datasetId);
   if (!isObj(v) || v.version !== 2) return out;
   if (isObj(v.cards)) for (const [k, c] of Object.entries(v.cards)) if (validCard(c)) out.cards[k] = c;
+  if (isObj(v.skills)) {
+    for (const [id, value] of Object.entries(v.skills)) {
+      if (!/^[a-z0-9][a-z0-9-]{0,90}$/i.test(id) || !isObj(value)) continue;
+      const skills: Progress["skills"][string] = {};
+      for (const kind of REVIEW_SKILLS) {
+        const skill = value[kind];
+        if (!isObj(skill) || !validCard(skill.card)) continue;
+        const outcome = skill.outcome;
+        if (outcome === "independent" || outcome === "assisted" || outcome === "missed") {
+          skills[kind] = { card: skill.card, outcome };
+        }
+      }
+      if (Object.keys(skills).length) out.skills[id] = skills;
+    }
+  }
   if (Array.isArray(v.bookmarks)) out.bookmarks = v.bookmarks.filter((x): x is string => typeof x === "string").slice(0, 20000);
   if (Array.isArray(v.mistakes)) out.mistakes = v.mistakes.filter((x): x is string => typeof x === "string").slice(0, 300);
   if (isObj(v.days))
